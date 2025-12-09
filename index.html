@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AlgoTrade - Login</title>
+    <title>bvrfunds</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -81,6 +81,23 @@
         .hidden {
             display: none;
         }
+
+        .profile-dropdown {
+            position: relative;
+        }
+
+        .profile-menu {
+            position: absolute;
+            right: 0;
+            top: 100%;
+            margin-top: 0.5rem;
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            min-width: 280px;
+            z-index: 50;
+        }
     </style>
 </head>
 <body class="min-h-screen bg-white">
@@ -93,11 +110,53 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
                     </svg>
                 </div>
-                <span class="text-xl font-bold text-gray-900">AlgoTrade</span>
+                <span class="text-xl font-bold text-gray-900">BVR Funds</span>
             </div>
-            <button id="logoutBtn" class="text-sm text-gray-600 hover:text-[#FE4A03] transition-colors hidden">
-                Logout
-            </button>
+            
+            <!-- Profile Dropdown -->
+            <div id="profileSection" class="hidden profile-dropdown">
+                <button id="profileBtn" class="flex items-center gap-3 hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors">
+                    <div class="text-right">
+                        <div id="profileName" class="text-sm font-semibold text-gray-900">Loading...</div>
+                        <div id="profileEmail" class="text-xs text-gray-500">Loading...</div>
+                    </div>
+                    <div class="w-10 h-10 bg-[#FE4A03] rounded-full flex items-center justify-center">
+                        <span id="profileInitials" class="text-white font-bold text-sm">?</span>
+                    </div>
+                    <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                
+                <!-- Dropdown Menu -->
+                <div id="profileMenu" class="profile-menu hidden">
+                    <div class="p-4 border-b border-gray-200">
+                        <div class="font-semibold text-gray-900 mb-1" id="menuUserName">User Name</div>
+                        <div class="text-sm text-gray-600 mono" id="menuUserId">USER123</div>
+                        <div class="text-xs text-gray-500 mt-1" id="menuEmail">email@example.com</div>
+                    </div>
+                    <div class="p-3">
+                        <div class="px-3 py-2 text-xs text-gray-500 font-semibold uppercase">Account Details</div>
+                        <div class="px-3 py-2 text-sm">
+                            <div class="flex justify-between mb-2">
+                                <span class="text-gray-600">User Type:</span>
+                                <span class="font-semibold text-gray-900" id="menuUserType">-</span>
+                            </div>
+                            <div class="flex justify-between mb-2">
+                                <span class="text-gray-600">Broker:</span>
+                                <span class="font-semibold text-gray-900" id="menuBroker">-</span>
+                            </div>
+                            <div class="text-gray-600 mb-1">Products:</div>
+                            <div id="menuProducts" class="flex flex-wrap gap-1"></div>
+                        </div>
+                    </div>
+                    <div class="p-3 border-t border-gray-200">
+                        <button id="logoutBtn" class="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </nav>
 
@@ -154,7 +213,7 @@
                     <div class="mt-8 pt-8 border-t border-gray-200">
                         <p class="text-sm text-gray-500 text-center">
                             Don't have API credentials? 
-                            <a href="https://kite.zerodha.com/connect/api" target="_blank" class="text-[#FE4A03] font-semibold hover:underline">
+                            <a href="https://kite.zerodha.com/connect/api" target="_blank" rel="noopener noreferrer" class="text-[#FE4A03] font-semibold hover:underline">
                                 Create API App
                             </a>
                         </p>
@@ -196,78 +255,39 @@
             </div>
         </div>
 
-        <!-- Step 2: Redirect -->
-        <div id="redirectStep" class="animate-fade-in hidden">
-            <div class="max-w-xl mx-auto text-center">
-                <div class="bg-white rounded-2xl border-2 border-gray-200 p-12 shadow-sm">
-                    <div class="w-16 h-16 bg-[#FE4A03] bg-opacity-10 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <svg class="w-8 h-8 text-[#FE4A03]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-                        </svg>
-                    </div>
-                    <h2 class="text-3xl font-bold text-gray-900 mb-4">Authorize with Zerodha</h2>
-                    <p class="text-gray-600 mb-8">
-                        Click the button below to securely login via Zerodha Kite. You'll be redirected back after authorization.
-                    </p>
-                    <button
-                        id="openKiteBtn"
-                        class="btn-primary text-white font-semibold px-8 py-4 rounded-lg inline-flex items-center justify-center gap-2"
-                    >
-                        Open Kite Login
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Step 3: Token -->
+        <!-- Step 2: Token (shown after redirect back) -->
         <div id="tokenStep" class="animate-slide-up hidden">
             <div class="max-w-xl mx-auto">
                 <div class="text-center mb-8">
                     <h2 class="text-3xl font-bold text-gray-900 mb-2">Complete Login</h2>
-                    <p class="text-gray-600">Paste the request token from the redirect URL</p>
+                    <p class="text-gray-600">Authenticating with Zerodha Kite...</p>
                 </div>
 
                 <div class="bg-white rounded-2xl border-2 border-gray-200 p-8 shadow-sm">
-                    <form id="tokenForm" class="space-y-6">
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-900 mb-2">Request Token</label>
-                            <input
-                                type="text"
-                                id="requestToken"
-                                placeholder="Paste request_token here"
-                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:border-[#FE4A03] transition-colors mono text-sm"
-                                required
-                            />
-                            <p class="text-xs text-gray-500 mt-2">Found in the URL after ?request_token=</p>
-                        </div>
-
-                        <div id="tokenErrorMessage" class="p-4 bg-amber-50 border-2 border-amber-200 rounded-lg hidden">
-                            <p class="text-sm text-amber-700"></p>
-                        </div>
-
-                        <button
-                            type="submit"
-                            id="completeLoginBtn"
-                            class="w-full btn-primary text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2"
-                        >
-                            Complete Login
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    <div class="flex flex-col items-center gap-4">
+                        <div class="w-16 h-16 bg-[#FE4A03] bg-opacity-10 rounded-full flex items-center justify-center">
+                            <svg class="w-8 h-8 text-[#FE4A03] animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                             </svg>
-                        </button>
-                    </form>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-gray-900 font-semibold mb-1">Processing authentication...</p>
+                            <p class="text-sm text-gray-600">Request Token: <span id="displayToken" class="mono text-[#FE4A03]"></span></p>
+                        </div>
+                    </div>
+
+                    <div id="tokenErrorMessage" class="mt-6 p-4 bg-amber-50 border-2 border-amber-200 rounded-lg hidden">
+                        <p class="text-sm text-amber-700"></p>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Step 4: Dashboard -->
+        <!-- Step 3: Dashboard -->
         <div id="dashboardStep" class="animate-fade-in hidden">
             <div class="mb-8">
                 <h1 class="text-4xl font-bold text-gray-900 mb-2">Dashboard</h1>
-                <p class="text-gray-600">Welcome to your algo trading platform</p>
+                <p class="text-gray-600">Welcome to BVR Funds</p>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -290,22 +310,27 @@
                 </div>
             </div>
 
-            <div class="bg-gradient-to-br from-[#FE4A03] to-[#ff6b35] rounded-2xl p-8 text-white">
-                <h2 class="text-2xl font-bold mb-2">🎉 Login Successful!</h2>
-                <p class="text-white text-opacity-90 mb-6">
-                    Your authentication is complete. The framework is ready for your trading strategies.
-                </p>
-                <div class="flex gap-4">
-                    <button class="bg-white text-[#FE4A03] font-semibold px-6 py-3 rounded-lg hover:bg-opacity-90 transition-all">
-                        Deploy Strategy
-                    </button>
-                    <button class="bg-white bg-opacity-20 text-white font-semibold px-6 py-3 rounded-lg hover:bg-opacity-30 transition-all">
-                        View Analytics
-                    </button>
+            <!-- Success Banner - Smaller -->
+            <div class="bg-gradient-to-br from-[#FE4A03] to-[#ff6b35] rounded-xl p-6 text-white mb-8">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-xl font-bold mb-1">🎉 Login Successful!</h2>
+                        <p class="text-white text-opacity-90 text-sm">
+                            Your authentication is complete. Ready to deploy strategies.
+                        </p>
+                    </div>
+                    <div class="flex gap-3">
+                        <button class="bg-white text-[#FE4A03] font-semibold px-5 py-2 text-sm rounded-lg hover:bg-opacity-90 transition-all">
+                            Deploy Strategy
+                        </button>
+                        <button class="bg-white bg-opacity-20 text-white font-semibold px-5 py-2 text-sm rounded-lg hover:bg-opacity-30 transition-all">
+                            View Analytics
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <div class="mt-8 bg-gray-50 border-2 border-gray-200 rounded-xl p-6">
+            <div class="bg-gray-50 border-2 border-gray-200 rounded-xl p-6">
                 <h3 class="font-semibold text-gray-900 mb-4">Next Steps:</h3>
                 <ul class="space-y-3">
                     <li class="flex items-start gap-3">
@@ -343,55 +368,87 @@
     <!-- Footer -->
     <footer class="border-t border-gray-200 mt-20 py-8">
         <div class="max-w-7xl mx-auto px-6 text-center text-sm text-gray-500">
-            <p>Powered by Zerodha Kite Connect • Your Algo Trading Platform</p>
+            <p>Powered by Zerodha Kite Connect • BVR Funds Algo Trading Platform</p>
         </div>
     </footer>
 
     <script>
+        // Configuration
+        const CONFIG = {
+            redirectUrl: window.location.origin + window.location.pathname.replace(/\/+$/, ''),
+            backendUrl: 'http://localhost:5000'
+        };
+
         // State management
         let state = {
             apiKey: '',
             apiSecret: '',
             requestToken: '',
-            authUrl: '',
-            currentStep: 'credentials'
+            currentStep: 'credentials',
+            profile: null
         };
 
         // DOM elements
         const credentialsStep = document.getElementById('credentialsStep');
-        const redirectStep = document.getElementById('redirectStep');
         const tokenStep = document.getElementById('tokenStep');
         const dashboardStep = document.getElementById('dashboardStep');
         const credentialsForm = document.getElementById('credentialsForm');
-        const tokenForm = document.getElementById('tokenForm');
-        const openKiteBtn = document.getElementById('openKiteBtn');
+        const profileSection = document.getElementById('profileSection');
+        const profileBtn = document.getElementById('profileBtn');
+        const profileMenu = document.getElementById('profileMenu');
         const logoutBtn = document.getElementById('logoutBtn');
         const errorMessage = document.getElementById('errorMessage');
         const tokenErrorMessage = document.getElementById('tokenErrorMessage');
+
+        // Profile dropdown toggle
+        profileBtn?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            profileMenu.classList.toggle('hidden');
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', () => {
+            profileMenu?.classList.add('hidden');
+        });
 
         // Check for request_token in URL on page load
         window.addEventListener('load', () => {
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('request_token');
-            const storedApiKey = sessionStorage.getItem('api_key');
-            const storedApiSecret = sessionStorage.getItem('api_secret');
+            const status = urlParams.get('status');
+            const action = urlParams.get('action');
 
-            if (token && storedApiKey && storedApiSecret) {
-                state.apiKey = storedApiKey;
-                state.apiSecret = storedApiSecret;
-                state.requestToken = token;
-                document.getElementById('requestToken').value = token;
-                showStep('token');
+            console.log('URL Params:', { token, status, action });
+
+            if (token && status === 'success' && action === 'login') {
+                const storedApiKey = sessionStorage.getItem('api_key');
+                const storedApiSecret = sessionStorage.getItem('api_secret');
+
+                if (storedApiKey && storedApiSecret) {
+                    state.apiKey = storedApiKey;
+                    state.apiSecret = storedApiSecret;
+                    state.requestToken = token;
+                    
+                    document.getElementById('displayToken').textContent = token.substring(0, 20) + '...';
+                    
+                    showStep('token');
+                    
+                    setTimeout(() => {
+                        completeLogin(token);
+                    }, 1000);
+                } else {
+                    showError('Session expired. Please login again.');
+                    showStep('credentials');
+                }
             }
         });
 
         // Show specific step
         function showStep(step) {
             credentialsStep.classList.add('hidden');
-            redirectStep.classList.add('hidden');
             tokenStep.classList.add('hidden');
             dashboardStep.classList.add('hidden');
-            logoutBtn.classList.add('hidden');
+            profileSection.classList.add('hidden');
 
             state.currentStep = step;
 
@@ -399,15 +456,12 @@
                 case 'credentials':
                     credentialsStep.classList.remove('hidden');
                     break;
-                case 'redirect':
-                    redirectStep.classList.remove('hidden');
-                    break;
                 case 'token':
                     tokenStep.classList.remove('hidden');
                     break;
                 case 'dashboard':
                     dashboardStep.classList.remove('hidden');
-                    logoutBtn.classList.remove('hidden');
+                    profileSection.classList.remove('hidden');
                     break;
             }
         }
@@ -423,6 +477,41 @@
         function hideError(isTokenStep = false) {
             const errorElement = isTokenStep ? tokenErrorMessage : errorMessage;
             errorElement.classList.add('hidden');
+        }
+
+        // Update profile display
+        function updateProfile(profile) {
+            state.profile = profile;
+            
+            // Get initials from name
+            const nameParts = profile.user_name.split(' ');
+            const initials = nameParts.map(n => n[0]).join('').toUpperCase().substring(0, 2);
+            
+            // Update header profile
+            document.getElementById('profileName').textContent = profile.user_name;
+            document.getElementById('profileEmail').textContent = profile.email;
+            document.getElementById('profileInitials').textContent = initials;
+            
+            // Update dropdown menu
+            document.getElementById('menuUserName').textContent = profile.user_name;
+            document.getElementById('menuUserId').textContent = profile.user_id;
+            document.getElementById('menuEmail').textContent = profile.email;
+            document.getElementById('menuUserType').textContent = profile.user_type || 'individual';
+            document.getElementById('menuBroker').textContent = profile.broker || 'Zerodha';
+            
+            // Update products
+            const productsContainer = document.getElementById('menuProducts');
+            productsContainer.innerHTML = '';
+            if (profile.products && profile.products.length > 0) {
+                profile.products.forEach(product => {
+                    const badge = document.createElement('span');
+                    badge.className = 'px-2 py-1 bg-[#FE4A03] bg-opacity-10 text-[#FE4A03] text-xs font-semibold rounded';
+                    badge.textContent = product.toUpperCase();
+                    productsContainer.appendChild(badge);
+                });
+            } else {
+                productsContainer.innerHTML = '<span class="text-xs text-gray-500">No products available</span>';
+            }
         }
 
         // Handle credentials form submission
@@ -441,43 +530,23 @@
             state.apiKey = apiKey;
             state.apiSecret = apiSecret;
 
-            // Store in session
             sessionStorage.setItem('api_key', apiKey);
             sessionStorage.setItem('api_secret', apiSecret);
 
-            // Generate Kite auth URL
-            state.authUrl = `https://kite.zerodha.com/connect/login?api_key=${apiKey}&v=3`;
-
-            showStep('redirect');
+            const kiteAuthUrl = `https://kite.zerodha.com/connect/login?api_key=${apiKey}&v=3`;
+            
+            console.log('Redirecting to Kite:', kiteAuthUrl);
+            console.log('Will redirect back to:', CONFIG.redirectUrl);
+            
+            window.location.href = kiteAuthUrl;
         });
 
-        // Handle Kite redirect
-        openKiteBtn.addEventListener('click', () => {
-            window.location.href = state.authUrl;
-        });
-
-        // Handle token form submission
-        tokenForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
+        // Complete login with request token
+        async function completeLogin(requestToken) {
             hideError(true);
 
-            const requestToken = document.getElementById('requestToken').value.trim();
-
-            if (!requestToken) {
-                showError('Please enter the request token', true);
-                return;
-            }
-
-            state.requestToken = requestToken;
-
-            // Show loading state
-            const completeLoginBtn = document.getElementById('completeLoginBtn');
-            completeLoginBtn.disabled = true;
-            completeLoginBtn.innerHTML = 'Authenticating...';
-
             try {
-                // Call backend API
-                const response = await fetch('http://localhost:5000/api/generate-session', {
+                const response = await fetch(`${CONFIG.backendUrl}/api/generate-session`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -492,36 +561,63 @@
                 const data = await response.json();
 
                 if (response.ok && data.success) {
-                    // Store access token
                     sessionStorage.setItem('access_token', data.access_token);
                     sessionStorage.setItem('user_id', data.user_id);
 
-                    // Show dashboard
+                    // Fetch profile
+                    await fetchProfile(data.user_id);
+
+                    window.history.replaceState({}, document.title, window.location.pathname);
                     showStep('dashboard');
                 } else {
                     throw new Error(data.error || 'Failed to generate session');
                 }
             } catch (error) {
+                console.error('Login error:', error);
+                
+                // Demo mode - simulate profile
+                const demoProfile = {
+                    user_id: 'DEMO123',
+                    user_name: 'Demo User',
+                    email: 'demo@bvrfunds.com',
+                    user_type: 'individual',
+                    broker: 'Zerodha',
+                    products: ['CNC', 'MIS', 'NRML']
+                };
+                
+                updateProfile(demoProfile);
+                
                 showError(
-                    'Backend API not connected. Make sure Flask server is running on port 5000. ' +
-                    'In production, this will authenticate with Kite Connect.',
+                    'Backend API not connected. Demo mode active.',
                     true
                 );
                 
-                // For demo purposes, simulate success after 2 seconds
                 setTimeout(() => {
+                    window.history.replaceState({}, document.title, window.location.pathname);
                     showStep('dashboard');
                 }, 2000);
-            } finally {
-                completeLoginBtn.disabled = false;
-                completeLoginBtn.innerHTML = `
-                    Complete Login
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                    </svg>
-                `;
             }
-        });
+        }
+
+        // Fetch profile from backend
+        async function fetchProfile(userId) {
+            try {
+                const response = await fetch(`${CONFIG.backendUrl}/api/profile`, {
+                    headers: {
+                        'X-User-ID': userId
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        updateProfile(data.profile);
+                    }
+                }
+            } catch (error) {
+                console.error('Profile fetch error:', error);
+            }
+        }
 
         // Handle logout
         logoutBtn.addEventListener('click', () => {
@@ -530,17 +626,15 @@
                 apiKey: '',
                 apiSecret: '',
                 requestToken: '',
-                authUrl: '',
-                currentStep: 'credentials'
+                currentStep: 'credentials',
+                profile: null
             };
             document.getElementById('apiKey').value = '';
             document.getElementById('apiSecret').value = '';
-            document.getElementById('requestToken').value = '';
             hideError();
             hideError(true);
             showStep('credentials');
             
-            // Clear URL parameters
             window.history.replaceState({}, document.title, window.location.pathname);
         });
     </script>
