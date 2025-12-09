@@ -49,7 +49,7 @@
             to { opacity: 1; }
         }
         
-        input:focus {
+        input:focus, select:focus {
             outline: none;
             border-color: #FE4A03;
         }
@@ -68,6 +68,15 @@
         .btn-primary:active {
             transform: translateY(0);
         }
+
+        .btn-secondary {
+            background: #6b7280;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
         
         .feature-card {
             transition: all 0.3s ease;
@@ -80,6 +89,41 @@
 
         .hidden {
             display: none;
+        }
+
+        .sidebar {
+            width: 260px;
+            min-height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            background: white;
+            border-right: 2px solid #e5e7eb;
+            padding-top: 80px;
+        }
+
+        .main-content {
+            margin-left: 260px;
+            padding-top: 80px;
+        }
+
+        .menu-item {
+            padding: 12px 24px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
+        }
+
+        .menu-item:hover {
+            background: #fef3f0;
+            border-left-color: #FE4A03;
+        }
+
+        .menu-item.active {
+            background: #fef3f0;
+            border-left-color: #FE4A03;
+            color: #FE4A03;
+            font-weight: 600;
         }
 
         .profile-dropdown {
@@ -98,12 +142,80 @@
             min-width: 280px;
             z-index: 50;
         }
+
+        .monitor-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .monitor-status.active {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .monitor-status.inactive {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .pulse {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .log-entry {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .log-entry.info {
+            background: #f0f9ff;
+            color: #0c4a6e;
+            border-left: 3px solid #0ea5e9;
+        }
+
+        .log-entry.success {
+            background: #f0fdf4;
+            color: #166534;
+            border-left: 3px solid #22c55e;
+        }
+
+        .log-entry.warning {
+            background: #fffbeb;
+            color: #92400e;
+            border-left: 3px solid #f59e0b;
+        }
+
+        .log-entry.error {
+            background: #fef2f2;
+            color: #991b1b;
+            border-left: 3px solid #ef4444;
+        }
     </style>
 </head>
-<body class="min-h-screen bg-white">
+<body class="min-h-screen bg-gray-50">
     <!-- Navigation Bar -->
-    <nav class="border-b border-gray-200 bg-white sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+    <nav class="border-b border-gray-200 bg-white fixed top-0 left-0 right-0 z-50">
+        <div class="px-6 py-4 flex items-center justify-between">
             <div class="flex items-center gap-3">
                 <div class="w-8 h-8 bg-[#FE4A03] rounded-sm flex items-center justify-center">
                     <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -160,12 +272,39 @@
         </div>
     </nav>
 
-    <!-- Main Content -->
-    <div class="max-w-7xl mx-auto px-6 py-12">
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar hidden">
+        <div class="py-4">
+            <div class="px-6 mb-4">
+                <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Menu</h3>
+            </div>
+            <nav>
+                <div class="menu-item active" data-page="dashboard">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                        </svg>
+                        <span>Dashboard</span>
+                    </div>
+                </div>
+                <div class="menu-item" data-page="chart-monitor">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                        <span>Chart Monitor</span>
+                    </div>
+                </div>
+            </nav>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div id="mainContent" class="main-content">
         
-        <!-- Step 1: Credentials -->
-        <div id="credentialsStep" class="animate-slide-up">
-            <div class="max-w-2xl mx-auto">
+        <!-- Login Page -->
+        <div id="loginPage" class="min-h-screen flex items-center justify-center px-6">
+            <div class="max-w-2xl w-full animate-slide-up">
                 <div class="text-center mb-12">
                     <h1 class="text-5xl font-bold text-gray-900 mb-4">Welcome Back</h1>
                     <p class="text-lg text-gray-600">Enter your Zerodha Kite API credentials to continue</p>
@@ -222,7 +361,7 @@
 
                 <!-- Feature Cards -->
                 <div class="grid grid-cols-3 gap-6 mt-12">
-                    <div class="feature-card bg-gray-50 p-6 rounded-xl border-2 border-gray-200">
+                    <div class="feature-card bg-white p-6 rounded-xl border-2 border-gray-200">
                         <div class="w-10 h-10 bg-[#FE4A03] bg-opacity-10 rounded-lg flex items-center justify-center mb-4">
                             <svg class="w-5 h-5 text-[#FE4A03]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
@@ -232,7 +371,7 @@
                         <p class="text-sm text-gray-600">Bank-grade encryption for your trading data</p>
                     </div>
 
-                    <div class="feature-card bg-gray-50 p-6 rounded-xl border-2 border-gray-200">
+                    <div class="feature-card bg-white p-6 rounded-xl border-2 border-gray-200">
                         <div class="w-10 h-10 bg-[#FE4A03] bg-opacity-10 rounded-lg flex items-center justify-center mb-4">
                             <svg class="w-5 h-5 text-[#FE4A03]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
@@ -242,7 +381,7 @@
                         <p class="text-sm text-gray-600">Lightning-quick order execution</p>
                     </div>
 
-                    <div class="feature-card bg-gray-50 p-6 rounded-xl border-2 border-gray-200">
+                    <div class="feature-card bg-white p-6 rounded-xl border-2 border-gray-200">
                         <div class="w-10 h-10 bg-[#FE4A03] bg-opacity-10 rounded-lg flex items-center justify-center mb-4">
                             <svg class="w-5 h-5 text-[#FE4A03]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
@@ -255,9 +394,9 @@
             </div>
         </div>
 
-        <!-- Step 2: Token (shown after redirect back) -->
-        <div id="tokenStep" class="animate-slide-up hidden">
-            <div class="max-w-xl mx-auto">
+        <!-- Processing Token -->
+        <div id="tokenPage" class="min-h-screen flex items-center justify-center px-6 hidden">
+            <div class="max-w-xl w-full animate-fade-in">
                 <div class="text-center mb-8">
                     <h2 class="text-3xl font-bold text-gray-900 mb-2">Complete Login</h2>
                     <p class="text-gray-600">Authenticating with Zerodha Kite...</p>
@@ -283,142 +422,180 @@
             </div>
         </div>
 
-        <!-- Step 3: Dashboard -->
-        <div id="dashboardStep" class="animate-fade-in hidden">
+        <!-- Dashboard Page -->
+        <div id="dashboardPage" class="p-8 hidden">
             <div class="mb-8">
-                <h1 class="text-4xl font-bold text-gray-900 mb-2">Dashboard</h1>
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
                 <p class="text-gray-600">Welcome to BVR Funds</p>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div class="bg-white border-2 border-gray-200 rounded-xl p-6">
-                    <div class="text-sm font-semibold text-gray-600 mb-1">Portfolio Value</div>
-                    <div class="text-3xl font-bold text-gray-900 mb-2">₹0.00</div>
-                    <div class="text-sm text-green-600 font-semibold">+0.00%</div>
-                </div>
-
-                <div class="bg-white border-2 border-gray-200 rounded-xl p-6">
-                    <div class="text-sm font-semibold text-gray-600 mb-1">Active Strategies</div>
-                    <div class="text-3xl font-bold text-gray-900 mb-2">0</div>
-                    <div class="text-sm text-gray-600">Ready to deploy</div>
-                </div>
-
-                <div class="bg-white border-2 border-gray-200 rounded-xl p-6">
-                    <div class="text-sm font-semibold text-gray-600 mb-1">Today's P&L</div>
-                    <div class="text-3xl font-bold text-gray-900 mb-2">₹0.00</div>
-                    <div class="text-sm text-gray-600">No trades yet</div>
-                </div>
-            </div>
-
-            <!-- Success Banner - Smaller -->
-            <div class="bg-gradient-to-br from-[#FE4A03] to-[#ff6b35] rounded-xl p-6 text-white mb-8">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h2 class="text-xl font-bold mb-1">🎉 Login Successful!</h2>
-                        <p class="text-white text-opacity-90 text-sm">
-                            Your authentication is complete. Ready to deploy strategies.
-                        </p>
-                    </div>
-                    <div class="flex gap-3">
-                        <button class="bg-white text-[#FE4A03] font-semibold px-5 py-2 text-sm rounded-lg hover:bg-opacity-90 transition-all">
-                            Deploy Strategy
-                        </button>
-                        <button class="bg-white bg-opacity-20 text-white font-semibold px-5 py-2 text-sm rounded-lg hover:bg-opacity-30 transition-all">
-                            View Analytics
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="bg-gray-50 border-2 border-gray-200 rounded-xl p-6">
-                <h3 class="font-semibold text-gray-900 mb-4">Next Steps:</h3>
-                <ul class="space-y-3">
-                    <li class="flex items-start gap-3">
-                        <div class="w-6 h-6 bg-[#FE4A03] bg-opacity-10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <span class="text-xs font-bold text-[#FE4A03]">1</span>
-                        </div>
-                        <div>
-                            <div class="font-semibold text-gray-900">Connect Your Backend</div>
-                            <div class="text-sm text-gray-600">Set up the Flask/FastAPI backend with your Python UDFs</div>
-                        </div>
+            <div class="bg-white border-2 border-gray-200 rounded-xl p-8">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">Getting Started</h2>
+                <p class="text-gray-600 mb-4">Your trading platform is ready. Use the menu on the left to:</p>
+                <ul class="space-y-2 text-gray-600">
+                    <li class="flex items-start gap-2">
+                        <span class="text-[#FE4A03]">•</span>
+                        <span>Monitor charts and get alerts</span>
                     </li>
-                    <li class="flex items-start gap-3">
-                        <div class="w-6 h-6 bg-[#FE4A03] bg-opacity-10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <span class="text-xs font-bold text-[#FE4A03]">2</span>
-                        </div>
-                        <div>
-                            <div class="font-semibold text-gray-900">Build Strategy Interface</div>
-                            <div class="text-sm text-gray-600">Create UI for deploying and monitoring your algos</div>
-                        </div>
+                    <li class="flex items-start gap-2">
+                        <span class="text-[#FE4A03]">•</span>
+                        <span>Deploy your trading strategies</span>
                     </li>
-                    <li class="flex items-start gap-3">
-                        <div class="w-6 h-6 bg-[#FE4A03] bg-opacity-10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <span class="text-xs font-bold text-[#FE4A03]">3</span>
-                        </div>
-                        <div>
-                            <div class="font-semibold text-gray-900">Add Real-time Data</div>
-                            <div class="text-sm text-gray-600">Integrate WebSocket feeds for live market data</div>
-                        </div>
+                    <li class="flex items-start gap-2">
+                        <span class="text-[#FE4A03]">•</span>
+                        <span>Track your portfolio performance</span>
                     </li>
                 </ul>
             </div>
         </div>
-    </div>
 
-    <!-- Footer -->
-    <footer class="border-t border-gray-200 mt-20 py-8">
-        <div class="max-w-7xl mx-auto px-6 text-center text-sm text-gray-500">
-            <p>Powered by Zerodha Kite Connect • BVR Funds Algo Trading Platform</p>
+        <!-- Chart Monitor Page -->
+        <div id="chartMonitorPage" class="p-8 hidden">
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">Chart Monitor</h1>
+                <p class="text-gray-600">Monitor candle strength and get email alerts</p>
+            </div>
+
+            <!-- Monitor Controls -->
+            <div class="bg-white border-2 border-gray-200 rounded-xl p-6 mb-6">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-900 mb-1">Monitor Status</h2>
+                        <p class="text-sm text-gray-600">Checks every 5 minutes for strong candles</p>
+                    </div>
+                    <div id="monitorStatus" class="monitor-status inactive">
+                        <div class="pulse bg-red-600"></div>
+                        <span>Stopped</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Instrument Token</label>
+                        <input
+                            type="number"
+                            id="instrumentToken"
+                            value="256265"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 mono text-sm"
+                        />
+                        <p class="text-xs text-gray-500 mt-1">Default: NIFTY 50 (256265)</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Interval</label>
+                        <select
+                            id="intervalSelect"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                        >
+                            <option value="minute">1 Minute</option>
+                            <option value="3minute">3 Minutes</option>
+                            <option value="5minute">5 Minutes</option>
+                            <option value="10minute">10 Minutes</option>
+                            <option value="15minute" selected>15 Minutes</option>
+                            <option value="30minute">30 Minutes</option>
+                            <option value="60minute">1 Hour</option>
+                            <option value="day">1 Day</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Threshold (%)</label>
+                        <input
+                            type="number"
+                            id="thresholdPercent"
+                            value="75"
+                            min="0"
+                            max="100"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                        />
+                        <p class="text-xs text-gray-500 mt-1">Alert when body is above this %</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Check Frequency</label>
+                        <select
+                            id="checkFrequency"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                        >
+                            <option value="60">1 Minute</option>
+                            <option value="180">3 Minutes</option>
+                            <option value="300" selected>5 Minutes</option>
+                            <option value="600">10 Minutes</option>
+                            <option value="900">15 Minutes</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex gap-4">
+                    <button id="startMonitorBtn" class="btn-primary text-white font-semibold px-6 py-3 rounded-lg">
+                        Start Monitor
+                    </button>
+                    <button id="stopMonitorBtn" class="btn-secondary text-white font-semibold px-6 py-3 rounded-lg hidden">
+                        Stop Monitor
+                    </button>
+                    <button id="checkNowBtn" class="border-2 border-gray-300 text-gray-700 font-semibold px-6 py-3 rounded-lg hover:bg-gray-50">
+                        Check Now
+                    </button>
+                </div>
+            </div>
+
+            <!-- Activity Log -->
+            <div class="bg-white border-2 border-gray-200 rounded-xl p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">Activity Log</h2>
+                <div id="activityLog" class="space-y-2 max-h-96 overflow-y-auto">
+                    <div class="log-entry info">
+                        <span class="text-xs text-gray-500">Ready to start monitoring</span>
+                    </div>
+                </div>
+            </div>
         </div>
-    </footer>
+
+    </div>
 
     <script>
         // Configuration
         const CONFIG = {
             redirectUrl: window.location.origin + window.location.pathname.replace(/\/+$/, ''),
-            backendUrl: 'https://bvrfunds-backend.onrender.com'
+            backendUrl: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+                ? 'http://localhost:5000'
+                : 'https://bvrfunds-backend.onrender.com'
         };
 
         // State management
         let state = {
             apiKey: '',
             apiSecret: '',
-            requestToken: '',
-            currentStep: 'credentials',
-            profile: null
+            accessToken: '',
+            userId: '',
+            profile: null,
+            currentPage: 'dashboard',
+            monitorInterval: null,
+            monitorRunning: false
         };
 
         // DOM elements
-        const credentialsStep = document.getElementById('credentialsStep');
-        const tokenStep = document.getElementById('tokenStep');
-        const dashboardStep = document.getElementById('dashboardStep');
-        const credentialsForm = document.getElementById('credentialsForm');
+        const loginPage = document.getElementById('loginPage');
+        const tokenPage = document.getElementById('tokenPage');
+        const dashboardPage = document.getElementById('dashboardPage');
+        const chartMonitorPage = document.getElementById('chartMonitorPage');
+        const sidebar = document.getElementById('sidebar');
         const profileSection = document.getElementById('profileSection');
         const profileBtn = document.getElementById('profileBtn');
         const profileMenu = document.getElementById('profileMenu');
+        const credentialsForm = document.getElementById('credentialsForm');
         const logoutBtn = document.getElementById('logoutBtn');
-        const errorMessage = document.getElementById('errorMessage');
-        const tokenErrorMessage = document.getElementById('tokenErrorMessage');
 
-        // Profile dropdown toggle
-        profileBtn?.addEventListener('click', (e) => {
-            e.stopPropagation();
-            profileMenu.classList.toggle('hidden');
-        });
-
-        // Close dropdown when clicking outside
-        document.addEventListener('click', () => {
-            profileMenu?.classList.add('hidden');
-        });
-
-        // Check for request_token in URL on page load
+        // Initialize
         window.addEventListener('load', () => {
+            checkAuthStatus();
+        });
+
+        // Check authentication status
+        function checkAuthStatus() {
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('request_token');
             const status = urlParams.get('status');
             const action = urlParams.get('action');
-
-            console.log('URL Params:', { token, status, action });
 
             if (token && status === 'success' && action === 'login') {
                 const storedApiKey = sessionStorage.getItem('api_key');
@@ -427,98 +604,90 @@
                 if (storedApiKey && storedApiSecret) {
                     state.apiKey = storedApiKey;
                     state.apiSecret = storedApiSecret;
-                    state.requestToken = token;
-                    
                     document.getElementById('displayToken').textContent = token.substring(0, 20) + '...';
-                    
-                    showStep('token');
-                    
-                    setTimeout(() => {
-                        completeLogin(token);
-                    }, 1000);
+                    showPage('token');
+                    setTimeout(() => completeLogin(token), 1000);
                 } else {
                     showError('Session expired. Please login again.');
-                    showStep('credentials');
+                    showPage('login');
+                }
+            } else {
+                const accessToken = sessionStorage.getItem('access_token');
+                if (accessToken) {
+                    state.accessToken = accessToken;
+                    state.userId = sessionStorage.getItem('user_id');
+                    loadProfile();
+                    showPage('dashboard');
+                } else {
+                    showPage('login');
                 }
             }
-        });
+        }
 
-        // Show specific step
-        function showStep(step) {
-            credentialsStep.classList.add('hidden');
-            tokenStep.classList.add('hidden');
-            dashboardStep.classList.add('hidden');
+        // Show page
+        function showPage(page) {
+            loginPage.classList.add('hidden');
+            tokenPage.classList.add('hidden');
+            dashboardPage.classList.add('hidden');
+            chartMonitorPage.classList.add('hidden');
+            sidebar.classList.add('hidden');
             profileSection.classList.add('hidden');
 
-            state.currentStep = step;
-
-            switch(step) {
-                case 'credentials':
-                    credentialsStep.classList.remove('hidden');
+            switch(page) {
+                case 'login':
+                    loginPage.classList.remove('hidden');
                     break;
                 case 'token':
-                    tokenStep.classList.remove('hidden');
+                    tokenPage.classList.remove('hidden');
                     break;
                 case 'dashboard':
-                    dashboardStep.classList.remove('hidden');
+                    dashboardPage.classList.remove('hidden');
+                    sidebar.classList.remove('hidden');
                     profileSection.classList.remove('hidden');
+                    state.currentPage = 'dashboard';
+                    updateActiveMenuItem('dashboard');
+                    break;
+                case 'chart-monitor':
+                    chartMonitorPage.classList.remove('hidden');
+                    sidebar.classList.remove('hidden');
+                    profileSection.classList.remove('hidden');
+                    state.currentPage = 'chart-monitor';
+                    updateActiveMenuItem('chart-monitor');
                     break;
             }
         }
 
-        // Show error message
-        function showError(message, isTokenStep = false) {
-            const errorElement = isTokenStep ? tokenErrorMessage : errorMessage;
-            errorElement.querySelector('p').textContent = message;
-            errorElement.classList.remove('hidden');
+        // Update active menu item
+        function updateActiveMenuItem(page) {
+            document.querySelectorAll('.menu-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.dataset.page === page) {
+                    item.classList.add('active');
+                }
+            });
         }
 
-        // Hide error message
-        function hideError(isTokenStep = false) {
-            const errorElement = isTokenStep ? tokenErrorMessage : errorMessage;
-            errorElement.classList.add('hidden');
-        }
+        // Menu item click handlers
+        document.querySelectorAll('.menu-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const page = item.dataset.page;
+                showPage(page);
+            });
+        });
 
-        // Update profile display
-        function updateProfile(profile) {
-            state.profile = profile;
-            
-            // Get initials from name
-            const nameParts = profile.user_name.split(' ');
-            const initials = nameParts.map(n => n[0]).join('').toUpperCase().substring(0, 2);
-            
-            // Update header profile
-            document.getElementById('profileName').textContent = profile.user_name;
-            document.getElementById('profileEmail').textContent = profile.email;
-            document.getElementById('profileInitials').textContent = initials;
-            
-            // Update dropdown menu
-            document.getElementById('menuUserName').textContent = profile.user_name;
-            document.getElementById('menuUserId').textContent = profile.user_id;
-            document.getElementById('menuEmail').textContent = profile.email;
-            document.getElementById('menuUserType').textContent = profile.user_type || 'individual';
-            document.getElementById('menuBroker').textContent = profile.broker || 'Zerodha';
-            
-            // Update products
-            const productsContainer = document.getElementById('menuProducts');
-            productsContainer.innerHTML = '';
-            if (profile.products && profile.products.length > 0) {
-                profile.products.forEach(product => {
-                    const badge = document.createElement('span');
-                    badge.className = 'px-2 py-1 bg-[#FE4A03] bg-opacity-10 text-[#FE4A03] text-xs font-semibold rounded';
-                    badge.textContent = product.toUpperCase();
-                    productsContainer.appendChild(badge);
-                });
-            } else {
-                productsContainer.innerHTML = '<span class="text-xs text-gray-500">No products available</span>';
-            }
-        }
+        // Profile dropdown toggle
+        profileBtn?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            profileMenu.classList.toggle('hidden');
+        });
 
-        // Handle credentials form submission
+        document.addEventListener('click', () => {
+            profileMenu?.classList.add('hidden');
+        });
+
+        // Handle credentials form
         credentialsForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            hideError();
-
             const apiKey = document.getElementById('apiKey').value.trim();
             const apiSecret = document.getElementById('apiSecret').value.trim();
 
@@ -534,23 +703,15 @@
             sessionStorage.setItem('api_secret', apiSecret);
 
             const kiteAuthUrl = `https://kite.zerodha.com/connect/login?api_key=${apiKey}&v=3`;
-            
-            console.log('Redirecting to Kite:', kiteAuthUrl);
-            console.log('Will redirect back to:', CONFIG.redirectUrl);
-            
             window.location.href = kiteAuthUrl;
         });
 
-        // Complete login with request token
+        // Complete login
         async function completeLogin(requestToken) {
-            hideError(true);
-
             try {
                 const response = await fetch(`${CONFIG.backendUrl}/api/generate-session`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         api_key: state.apiKey,
                         api_secret: state.apiSecret,
@@ -563,49 +724,26 @@
                 if (response.ok && data.success) {
                     sessionStorage.setItem('access_token', data.access_token);
                     sessionStorage.setItem('user_id', data.user_id);
+                    state.accessToken = data.access_token;
+                    state.userId = data.user_id;
 
-                    // Fetch profile
-                    await fetchProfile(data.user_id);
-
+                    await loadProfile();
                     window.history.replaceState({}, document.title, window.location.pathname);
-                    showStep('dashboard');
+                    showPage('dashboard');
                 } else {
                     throw new Error(data.error || 'Failed to generate session');
                 }
             } catch (error) {
                 console.error('Login error:', error);
-                
-                // Demo mode - simulate profile
-                const demoProfile = {
-                    user_id: 'DEMO123',
-                    user_name: 'Demo User',
-                    email: 'demo@bvrfunds.com',
-                    user_type: 'individual',
-                    broker: 'Zerodha',
-                    products: ['CNC', 'MIS', 'NRML']
-                };
-                
-                updateProfile(demoProfile);
-                
-                showError(
-                    'Backend API not connected. Demo mode active.',
-                    true
-                );
-                
-                setTimeout(() => {
-                    window.history.replaceState({}, document.title, window.location.pathname);
-                    showStep('dashboard');
-                }, 2000);
+                simulateDemoMode();
             }
         }
 
-        // Fetch profile from backend
-        async function fetchProfile(userId) {
+        // Load profile
+        async function loadProfile() {
             try {
                 const response = await fetch(`${CONFIG.backendUrl}/api/profile`, {
-                    headers: {
-                        'X-User-ID': userId
-                    }
+                    headers: { 'X-User-ID': state.userId }
                 });
 
                 if (response.ok) {
@@ -619,23 +757,200 @@
             }
         }
 
-        // Handle logout
+        // Update profile display
+        function updateProfile(profile) {
+            state.profile = profile;
+            const nameParts = profile.user_name.split(' ');
+            const initials = nameParts.map(n => n[0]).join('').toUpperCase().substring(0, 2);
+            
+            document.getElementById('profileName').textContent = profile.user_name;
+            document.getElementById('profileEmail').textContent = profile.email;
+            document.getElementById('profileInitials').textContent = initials;
+            document.getElementById('menuUserName').textContent = profile.user_name;
+            document.getElementById('menuUserId').textContent = profile.user_id;
+            document.getElementById('menuEmail').textContent = profile.email;
+            document.getElementById('menuUserType').textContent = profile.user_type || 'individual';
+            document.getElementById('menuBroker').textContent = profile.broker || 'Zerodha';
+            
+            const productsContainer = document.getElementById('menuProducts');
+            productsContainer.innerHTML = '';
+            if (profile.products && profile.products.length > 0) {
+                profile.products.forEach(product => {
+                    const badge = document.createElement('span');
+                    badge.className = 'px-2 py-1 bg-[#FE4A03] bg-opacity-10 text-[#FE4A03] text-xs font-semibold rounded';
+                    badge.textContent = product.toUpperCase();
+                    productsContainer.appendChild(badge);
+                });
+            }
+        }
+
+        // Simulate demo mode
+        function simulateDemoMode() {
+            const demoProfile = {
+                user_id: 'DEMO123',
+                user_name: 'Demo User',
+                email: 'demo@bvrfunds.com',
+                user_type: 'individual',
+                broker: 'Zerodha',
+                products: ['CNC', 'MIS', 'NRML']
+            };
+            updateProfile(demoProfile);
+            setTimeout(() => {
+                window.history.replaceState({}, document.title, window.location.pathname);
+                showPage('dashboard');
+            }, 2000);
+        }
+
+        // Logout
         logoutBtn.addEventListener('click', () => {
             sessionStorage.clear();
             state = {
                 apiKey: '',
                 apiSecret: '',
-                requestToken: '',
-                currentStep: 'credentials',
-                profile: null
+                accessToken: '',
+                userId: '',
+                profile: null,
+                currentPage: 'dashboard',
+                monitorInterval: null,
+                monitorRunning: false
             };
-            document.getElementById('apiKey').value = '';
-            document.getElementById('apiSecret').value = '';
-            hideError();
-            hideError(true);
-            showStep('credentials');
-            
+            if (state.monitorInterval) {
+                clearInterval(state.monitorInterval);
+            }
             window.history.replaceState({}, document.title, window.location.pathname);
+            showPage('login');
+        });
+
+        // Show error
+        function showError(message) {
+            const errorElement = document.getElementById('errorMessage');
+            errorElement.querySelector('p').textContent = message;
+            errorElement.classList.remove('hidden');
+        }
+
+        // Chart Monitor Functions
+        const startMonitorBtn = document.getElementById('startMonitorBtn');
+        const stopMonitorBtn = document.getElementById('stopMonitorBtn');
+        const checkNowBtn = document.getElementById('checkNowBtn');
+        const monitorStatus = document.getElementById('monitorStatus');
+        const activityLog = document.getElementById('activityLog');
+
+        // Add log entry
+        function addLogEntry(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.innerHTML = `<span class="text-xs text-gray-500">${timestamp}</span> - ${message}`;
+            activityLog.insertBefore(entry, activityLog.firstChild);
+            
+            // Keep only last 50 entries
+            while (activityLog.children.length > 50) {
+                activityLog.removeChild(activityLog.lastChild);
+            }
+        }
+
+        // Start monitor
+        startMonitorBtn.addEventListener('click', async () => {
+            const instrumentToken = document.getElementById('instrumentToken').value;
+            const interval = document.getElementById('intervalSelect').value;
+            const threshold = document.getElementById('thresholdPercent').value;
+            const frequency = parseInt(document.getElementById('checkFrequency').value);
+
+            try {
+                const response = await fetch(`${CONFIG.backendUrl}/api/start-monitor`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-User-ID': state.userId
+                    },
+                    body: JSON.stringify({
+                        instrument_token: instrumentToken,
+                        interval: interval,
+                        threshold: threshold,
+                        frequency: frequency
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    state.monitorRunning = true;
+                    monitorStatus.className = 'monitor-status active';
+                    monitorStatus.innerHTML = '<div class="pulse bg-green-600"></div><span>Running</span>';
+                    startMonitorBtn.classList.add('hidden');
+                    stopMonitorBtn.classList.remove('hidden');
+                    addLogEntry('✅ Monitor started successfully', 'success');
+                    addLogEntry(`Checking every ${frequency / 60} minutes for candles with body > ${threshold}%`, 'info');
+                } else {
+                    throw new Error(data.error || 'Failed to start monitor');
+                }
+            } catch (error) {
+                addLogEntry(`❌ Error: ${error.message}`, 'error');
+            }
+        });
+
+        // Stop monitor
+        stopMonitorBtn.addEventListener('click', async () => {
+            try {
+                const response = await fetch(`${CONFIG.backendUrl}/api/stop-monitor`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-User-ID': state.userId
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    state.monitorRunning = false;
+                    monitorStatus.className = 'monitor-status inactive';
+                    monitorStatus.innerHTML = '<div class="pulse bg-red-600"></div><span>Stopped</span>';
+                    startMonitorBtn.classList.remove('hidden');
+                    stopMonitorBtn.classList.add('hidden');
+                    addLogEntry('🛑 Monitor stopped', 'warning');
+                }
+            } catch (error) {
+                addLogEntry(`❌ Error: ${error.message}`, 'error');
+            }
+        });
+
+        // Check now
+        checkNowBtn.addEventListener('click', async () => {
+            const instrumentToken = document.getElementById('instrumentToken').value;
+            const interval = document.getElementById('intervalSelect').value;
+            const threshold = document.getElementById('thresholdPercent').value;
+
+            addLogEntry('🔍 Checking candle strength...', 'info');
+
+            try {
+                const response = await fetch(`${CONFIG.backendUrl}/api/check-candle`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-User-ID': state.userId
+                    },
+                    body: JSON.stringify({
+                        instrument_token: instrumentToken,
+                        interval: interval,
+                        threshold: threshold
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    const result = data.result;
+                    addLogEntry(`Body: ${result.body_percent.toFixed(2)}% | ${result.message}`, result.alert_sent ? 'success' : 'info');
+                    if (result.alert_sent) {
+                        addLogEntry(`📧 Alert email sent`, 'success');
+                    }
+                } else {
+                    throw new Error(data.error || 'Check failed');
+                }
+            } catch (error) {
+                addLogEntry(`❌ Error: ${error.message}`, 'error');
+            }
         });
     </script>
 </body>
