@@ -590,15 +590,20 @@
 
         // Initialize
         window.addEventListener('load', () => {
+            console.log('Page loaded');
+            console.log('Credentials form:', credentialsForm);
             checkAuthStatus();
         });
 
         // Check authentication status
         function checkAuthStatus() {
+            console.log('Checking auth status...');
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('request_token');
             const status = urlParams.get('status');
             const action = urlParams.get('action');
+
+            console.log('URL Params:', { token, status, action });
 
             if (token && status === 'success' && action === 'login') {
                 const storedApiKey = sessionStorage.getItem('api_key');
@@ -690,11 +695,16 @@
 
         // Handle credentials form
         credentialsForm.addEventListener('submit', (e) => {
+            console.log('Form submitted!');
             e.preventDefault();
             const apiKey = document.getElementById('apiKey').value.trim();
             const apiSecret = document.getElementById('apiSecret').value.trim();
 
+            console.log('API Key:', apiKey ? 'Entered' : 'Empty');
+            console.log('API Secret:', apiSecret ? 'Entered' : 'Empty');
+
             if (!apiKey || !apiSecret) {
+                console.log('Validation failed');
                 showError('Please enter both API Key and API Secret');
                 return;
             }
@@ -706,6 +716,7 @@
             sessionStorage.setItem('api_secret', apiSecret);
 
             const kiteAuthUrl = `https://kite.zerodha.com/connect/login?api_key=${apiKey}&v=3`;
+            console.log('Redirecting to:', kiteAuthUrl);
             window.location.href = kiteAuthUrl;
         });
 
