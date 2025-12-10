@@ -646,22 +646,22 @@ async function checkBasketMargin() {
 }
 
 /**
- * Deploy basket orders
+ * Deploy basket orders - NO CONFIRMATION POPUP
  */
 async function deployBasket() {
     if (strategyBasket.length === 0) {
-        alert('Basket is empty! Add orders first.');
+        showDeploymentStatus('error', 'Basket is empty! Add orders first.');
         return;
     }
     
-    const confirmMsg = `Deploy ${strategyBasket.length} order(s)?
-
-Orders:
-${strategyBasket.map(o => `• ${o.transaction_type} ${o.lots} lot(s) of ${o.tradingsymbol}`).join('\n')}`;
-    
-    if (!confirm(confirmMsg)) {
-        return;
-    }
+    // Show loading state
+    const deployBtn = document.querySelector('button[onclick="deployBasket()"]');
+    const originalHTML = deployBtn.innerHTML;
+    deployBtn.disabled = true;
+    deployBtn.innerHTML = `
+        <div class="inline-block w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+        <span>Deploying...</span>
+    `;
     
     try {
         const response = await fetch(`${CONFIG.backendUrl}/api/strategy/deploy-basket`, {
@@ -679,34 +679,77 @@ ${strategyBasket.map(o => `• ${o.transaction_type} ${o.lots} lot(s) of ${o.tra
             let successCount = result.results.filter(r => r.success).length;
             let failCount = result.results.filter(r => !r.success).length;
             
-            let message = `✅ Deployment Complete!\n\n`;
-            message += `Success: ${successCount} orders\n`;
+            // Build success message
+            let successHTML = `<h4 class="font-bold text-green-900 mb-3">✅ Deployment Complete!</h4>`;
+            successHTML += `<div class="mb-3"><span class="text-green-700 font-semibold">Success: ${successCount} orders</span>`;
             if (failCount > 0) {
-                message += `Failed: ${failCount} orders\n`;
+                successHTML += ` <span class="text-red-700 font-semibold">| Failed: ${failCount} orders</span>`;
             }
-            message += `\nOrder Details:\n`;
+            successHTML += `</div><div class="space-y-2">`;
             
             result.results.forEach(r => {
                 if (r.success) {
-                    message += `✓ ${r.symbol}: ${r.lots} lots (${r.quantity} qty) - Order ID: ${r.order_id}\n`;
+                    successHTML += `
+                        <div class="flex items-center justify-between p-2 bg-green-100 rounded text-sm">
+                            <span>✓ ${r.symbol}: ${r.lots} lots (${r.quantity} qty)</span>
+                            <span class="font-mono text-xs text-green-700">ID: ${r.order_id}</span>
+                        </div>
+                    `;
                 } else {
-                    message += `✗ ${r.symbol}: ${r.error}\n`;
+                    successHTML += `
+                        <div class="p-2 bg-red-100 rounded text-sm text-red-700">
+                            ✗ ${r.symbol}: ${r.error}
+                        </div>
+                    `;
                 }
             });
+            successHTML += `</div>`;
             
-            alert(message);
+            showDeploymentStatus('success', successHTML);
             
-            // Clear basket and close modal
-            strategyBasket = [];
-            closeDeploymentModal();
+            // Auto-close modal after 3 seconds
+            setTimeout(() => {
+                strategyBasket = [];
+                closeDeploymentModal();
+            }, 3000);
             
         } else {
             throw new Error(result.error);
         }
         
     } catch (error) {
-        alert('Error deploying orders: ' + error.message);
+        showDeploymentStatus('error', `Error deploying orders: ${error.message}`);
+        
+        // Re-enable button on error
+        deployBtn.disabled = false;
+        deployBtn.innerHTML = originalHTML;
     }
+}
+
+/**
+ * Show deployment status inline (no popup)
+ */
+function showDeploymentStatus(type, message) {
+    const marginResult = document.getElementById('marginCheckResult');
+    
+    if (type === 'success') {
+        marginResult.innerHTML = `
+            <div class="p-4 bg-green-50 border-2 border-green-200 rounded-lg">
+                ${message}
+            </div>
+        `;
+    } else if (type === 'error') {
+        marginResult.innerHTML = `
+            <div class="p-4 bg-red-50 border-2 border-red-200 rounded-lg">
+                <p class="text-red-700 font-semibold">${message}</p>
+            </div>
+        `;
+    }
+    
+    marginResult.classList.remove('hidden');
+    
+    // Scroll to result
+    marginResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 /**
@@ -736,3 +779,4 @@ window.removeFromBasket = removeFromBasket;
 window.clearBasket = clearBasket;
 window.checkBasketMargin = checkBasketMargin;
 window.deployBasket = deployBasket;
+window.showDeploymentStatus = showDeploymentStatus;
