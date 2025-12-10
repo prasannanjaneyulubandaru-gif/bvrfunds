@@ -17,10 +17,9 @@ let state = {
     orderBasket: [],
     placedOrders: [],
     selectedPosition: null,
-    selectedStrategy: null,
     monitorInterval: null,
     monitorRunning: false,
-    autoTrailInterval: null
+    autoTrailInterval: null  // For polling auto trail status
 };
 
 // Initialize
@@ -208,7 +207,6 @@ function showPage(page) {
             document.getElementById('profileSection').classList.remove('hidden');
             state.currentPage = 'strategies';
             updateActiveMenuItem('strategies');
-            setupStrategiesListeners();
             break;
         case 'manage-positions':
             document.getElementById('managePositionsPage').classList.remove('hidden');
@@ -308,10 +306,8 @@ function handleLogout() {
         orderBasket: [],
         placedOrders: [],
         selectedPosition: null,
-        selectedStrategy: null,
         monitorInterval: null,
-        monitorRunning: false,
-        autoTrailInterval: null
+        monitorRunning: false
     };
     if (state.monitorInterval) {
         clearInterval(state.monitorInterval);
@@ -718,188 +714,6 @@ function generateExecutionSummary(statuses) {
 }
 
 // ===========================================
-// STRATEGIES PAGE
-// ===========================================
-
-function setupStrategiesListeners() {
-    console.log('Setting up strategies listeners');
-    document.getElementById('bullishSpreadBtn').addEventListener('click', selectBullishSpread);
-    document.getElementById('bearishSpreadBtn').addEventListener('click', selectBearishSpread);
-}
-
-async function selectBullishSpread() {
-    console.log('Bullish spread button clicked');
-    const lowerPremium = parseFloat(document.getElementById('bullLowerPremium').value);
-    const upperPremium = parseFloat(document.getElementById('bullUpperPremium').value);
-    
-    const statusDiv = document.getElementById('bullishStatus');
-    statusDiv.innerHTML = '<div class="p-4 bg-blue-50 rounded-lg">🔍 Searching for bullish spread...</div>';
-    
-    try {
-        const response = await fetch(`${CONFIG.backendUrl}/api/get-bull-spread`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-User-ID': state.userId
-            },
-            body: JSON.stringify({
-                lower_premium: lowerPremium,
-                upper_premium: upperPremium
-            })
-        });
-        
-        const data = await response.json();
-        console.log('Bull spread response:', data);
-        
-        if (data.success) {
-            // Store selected strategy
-            state.selectedStrategy = {
-                type: 'BULLISH',
-                future: data.future,
-                option: data.option
-            };
-            
-            // Display strategy details
-            statusDiv.innerHTML = `
-                <div class="p-6 bg-green-50 border-2 border-green-200 rounded-lg">
-                    <h3 class="font-bold text-green-800 mb-4 text-xl">
-                        🟢 BULLISH STRATEGY SELECTED — PRICE EXPECTED TO MOVE UP 📈
-                    </h3>
-                    <div class="space-y-3">
-                        <div class="p-4 bg-white rounded-lg">
-                            <div class="text-sm text-gray-600 mb-1">▶ FUTURES Symbol</div>
-                            <div class="font-bold text-lg mono text-gray-900">${data.future.symbol}</div>
-                            <div class="text-xs text-gray-500 mono">Token: ${data.future.token}</div>
-                        </div>
-                        <div class="p-4 bg-white rounded-lg">
-                            <div class="text-sm text-gray-600 mb-1">▶ OPTION Hedge Symbol (PUT)</div>
-                            <div class="font-bold text-lg mono text-gray-900">${data.option.symbol}</div>
-                            <div class="text-xs text-gray-500 mono">Token: ${data.option.token}</div>
-                        </div>
-                    </div>
-                    <button id="deployBullishBtn" class="mt-6 w-full btn-success text-white font-semibold px-6 py-3 rounded-lg">
-                        🚀 Deploy Strategy
-                    </button>
-                </div>
-            `;
-            
-            // Add event listener for deploy button
-            document.getElementById('deployBullishBtn').addEventListener('click', () => deployStrategy('BULLISH'));
-        } else {
-            statusDiv.innerHTML = `<div class="p-4 bg-red-50 border-2 border-red-200 rounded-lg text-red-700">❌ Error: ${data.error}</div>`;
-        }
-    } catch (error) {
-        console.error('Bull spread error:', error);
-        statusDiv.innerHTML = `<div class="p-4 bg-red-50 border-2 border-red-200 rounded-lg text-red-700">❌ Error: ${error.message}</div>`;
-    }
-}
-
-async function selectBearishSpread() {
-    console.log('Bearish spread button clicked');
-    const lowerPremium = parseFloat(document.getElementById('bearLowerPremium').value);
-    const upperPremium = parseFloat(document.getElementById('bearUpperPremium').value);
-    
-    const statusDiv = document.getElementById('bearishStatus');
-    statusDiv.innerHTML = '<div class="p-4 bg-blue-50 rounded-lg">🔍 Searching for bearish spread...</div>';
-    
-    try {
-        const response = await fetch(`${CONFIG.backendUrl}/api/get-bear-spread`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-User-ID': state.userId
-            },
-            body: JSON.stringify({
-                lower_premium: lowerPremium,
-                upper_premium: upperPremium
-            })
-        });
-        
-        const data = await response.json();
-        console.log('Bear spread response:', data);
-        
-        if (data.success) {
-            // Store selected strategy
-            state.selectedStrategy = {
-                type: 'BEARISH',
-                future: data.future,
-                option: data.option
-            };
-            
-            // Display strategy details
-            statusDiv.innerHTML = `
-                <div class="p-6 bg-red-50 border-2 border-red-200 rounded-lg">
-                    <h3 class="font-bold text-red-800 mb-4 text-xl">
-                        🔴 BEARISH STRATEGY SELECTED — PRICE EXPECTED TO MOVE DOWN 📉
-                    </h3>
-                    <div class="space-y-3">
-                        <div class="p-4 bg-white rounded-lg">
-                            <div class="text-sm text-gray-600 mb-1">▶ FUTURES Symbol</div>
-                            <div class="font-bold text-lg mono text-gray-900">${data.future.symbol}</div>
-                            <div class="text-xs text-gray-500 mono">Token: ${data.future.token}</div>
-                        </div>
-                        <div class="p-4 bg-white rounded-lg">
-                            <div class="text-sm text-gray-600 mb-1">▶ OPTION Hedge Symbol (CALL)</div>
-                            <div class="font-bold text-lg mono text-gray-900">${data.option.symbol}</div>
-                            <div class="text-xs text-gray-500 mono">Token: ${data.option.token}</div>
-                        </div>
-                    </div>
-                    <button id="deployBearishBtn" class="mt-6 w-full btn-danger text-white font-semibold px-6 py-3 rounded-lg">
-                        🚀 Deploy Strategy
-                    </button>
-                </div>
-            `;
-            
-            // Add event listener for deploy button
-            document.getElementById('deployBearishBtn').addEventListener('click', () => deployStrategy('BEARISH'));
-        } else {
-            statusDiv.innerHTML = `<div class="p-4 bg-red-50 border-2 border-red-200 rounded-lg text-red-700">❌ Error: ${data.error}</div>`;
-        }
-    } catch (error) {
-        console.error('Bear spread error:', error);
-        statusDiv.innerHTML = `<div class="p-4 bg-red-50 border-2 border-red-200 rounded-lg text-red-700">❌ Error: ${error.message}</div>`;
-    }
-}
-
-function deployStrategy(strategyType) {
-    if (!state.selectedStrategy) {
-        alert('No strategy selected!');
-        return;
-    }
-    
-    // Pre-populate the Place Orders page with strategy symbols
-    const strategy = state.selectedStrategy;
-    
-    // Navigate to Place Orders page
-    showPage('place-orders');
-    
-    // Pre-fill the order form with future
-    document.getElementById('orderSymbol').value = strategy.future.symbol;
-    document.getElementById('orderExchange').value = strategy.future.exchange;
-    
-    // Show a message about the strategy
-    const statusDiv = document.getElementById('orderStatusOutput');
-    const color = strategyType === 'BULLISH' ? 'green' : 'red';
-    const icon = strategyType === 'BULLISH' ? '📈' : '📉';
-    
-    statusDiv.innerHTML = `
-        <div class="p-4 bg-${color === 'green' ? 'green' : 'red'}-50 border-2 border-${color === 'green' ? 'green' : 'red'}-200 rounded-lg mb-4">
-            <h3 class="font-bold text-${color === 'green' ? 'green' : 'red'}-800 mb-2">
-                ${icon} ${strategyType} FUTURE SPREAD STRATEGY
-            </h3>
-            <div class="text-sm text-${color === 'green' ? 'green' : 'red'}-700">
-                <div><strong>Future:</strong> ${strategy.future.symbol}</div>
-                <div><strong>Option Hedge:</strong> ${strategy.option.symbol}</div>
-                <div class="mt-2 text-xs">💡 Add both symbols to your basket and configure quantities</div>
-            </div>
-        </div>
-    `;
-}
-
-// Continue to next message for Manage Positions and Chart Monitor...
-
-
-// ===========================================
 // MANAGE POSITIONS PAGE
 // ===========================================
 
@@ -1078,16 +892,20 @@ async function startTrailing() {
     triggerPrice = Math.round(triggerPrice / 0.05) * 0.05; // Round to tick size
     
     // Calculate limit price with 5% buffer from trigger (wide range for F&O)
+    // This gives enough room for order to execute before we flip to MARKET
     const bufferPercent = 0.05; // 5% buffer
     let limitPrice;
     if (isLong) {
+        // LONG position - SELL order - limit price below trigger
         limitPrice = triggerPrice * (1 - bufferPercent);
     } else {
+        // SHORT position - BUY order - limit price above trigger
         limitPrice = triggerPrice * (1 + bufferPercent);
     }
-    limitPrice = Math.round(limitPrice / 0.05) * 0.05;
+    limitPrice = Math.round(limitPrice / 0.05) * 0.05; // Round to tick size
     
     try {
+        // Place SL order (not SL-M) with trigger and limit price
         const response = await fetch(`${CONFIG.backendUrl}/api/place-order`, {
             method: 'POST',
             headers: {
@@ -1101,15 +919,16 @@ async function startTrailing() {
                 transaction_type: isLong ? 'SELL' : 'BUY',
                 quantity: Math.abs(position.quantity),
                 product: position.product,
-                order_type: 'SL',
+                order_type: 'SL', // SL (Stop Loss Limit)
                 trigger_price: triggerPrice,
-                price: limitPrice
+                price: limitPrice // Wide limit price for protection
             })
         });
         
         const data = await response.json();
         
         if (data.success) {
+            // Show success message
             const messagesDiv = document.getElementById('positionMessages');
             
             messagesDiv.innerHTML = `
@@ -1128,6 +947,7 @@ async function startTrailing() {
                 </div>
             `;
             
+            // Show manual adjustment controls
             showManualTrailControls(data.order_id, triggerPrice, limitPrice, trailPoints);
         } else {
             alert('Error placing SL order: ' + data.error);
@@ -1145,9 +965,11 @@ async function startAutoTrailing() {
     const isLong = position.quantity > 0;
     const avgPrice = position.average_price;
     
+    // Calculate initial trigger price
     let triggerPrice = isLong ? avgPrice - trailPoints : avgPrice + trailPoints;
     triggerPrice = Math.round(triggerPrice / 0.05) * 0.05;
     
+    // Calculate limit price
     let limitPrice;
     if (isLong) {
         limitPrice = triggerPrice - trailPoints;
@@ -1157,6 +979,7 @@ async function startAutoTrailing() {
     limitPrice = Math.round(limitPrice / 0.05) * 0.05;
     
     try {
+        // First, place the initial SL order
         const placeResponse = await fetch(`${CONFIG.backendUrl}/api/place-order`, {
             method: 'POST',
             headers: {
@@ -1183,6 +1006,7 @@ async function startAutoTrailing() {
             return;
         }
         
+        // Get instrument token
         const instrumentToken = await getInstrumentToken(position.exchange, position.tradingsymbol);
         
         if (!instrumentToken) {
@@ -1190,6 +1014,7 @@ async function startAutoTrailing() {
             return;
         }
         
+        // Start automated trailing
         const trailResponse = await fetch(`${CONFIG.backendUrl}/api/start-auto-trail`, {
             method: 'POST',
             headers: {
@@ -1229,6 +1054,7 @@ async function startAutoTrailing() {
                 </div>
             `;
             
+            // Show stop button
             showAutoTrailControls(trailData.position_key, triggerPrice, limitPrice);
         } else {
             alert('Error starting auto trail: ' + trailData.error);
@@ -1240,6 +1066,8 @@ async function startAutoTrailing() {
 }
 
 async function getInstrumentToken(exchange, tradingsymbol) {
+    // For now, return a placeholder - in production, you'd fetch from instruments API
+    // This is a simplified version
     try {
         const response = await fetch(`${CONFIG.backendUrl}/api/get-instrument-token`, {
             method: 'POST',
@@ -1279,6 +1107,7 @@ function showAutoTrailControls(positionKey, trigger, limit) {
                 </div>
             </div>
             
+            <!-- Real-time status updates panel -->
             <div class="p-4 bg-gray-900 rounded-lg text-green-400 font-mono text-xs" style="max-height: 300px; overflow-y: auto;">
                 <div class="font-bold text-green-300 mb-2">📊 Real-Time Trail Status</div>
                 <div id="autoTrailLog" class="space-y-1">
@@ -1294,13 +1123,14 @@ function showAutoTrailControls(positionKey, trigger, limit) {
     
     statusDiv.classList.remove('hidden');
     
+    // Start polling for status updates every 2 seconds
     if (state.autoTrailInterval) {
         clearInterval(state.autoTrailInterval);
     }
     
     state.autoTrailInterval = setInterval(() => {
         fetchAutoTrailStatus();
-    }, 2000);
+    }, 2000); // Update every 2 seconds
 }
 
 async function fetchAutoTrailStatus() {
@@ -1328,6 +1158,7 @@ function updateAutoTrailLog(positions, logs) {
     
     let html = '';
     
+    // Show position summaries first
     for (const [posKey, details] of Object.entries(positions)) {
         const currentPrice = details.current_price || 0;
         const trigger = details.trigger_price;
@@ -1360,10 +1191,12 @@ function updateAutoTrailLog(positions, logs) {
         `;
     }
     
+    // Show recent log entries
     if (logs && logs.length > 0) {
         html += '<div class="border-t border-gray-700 my-2 pt-2">';
         html += '<div class="text-gray-400 text-xs mb-1">Recent Updates:</div>';
         
+        // Show last 10 logs
         const recentLogs = logs.slice(-10);
         for (const log of recentLogs) {
             const time = new Date(log.time * 1000).toLocaleTimeString();
@@ -1378,11 +1211,14 @@ function updateAutoTrailLog(positions, logs) {
     }
     
     logDiv.innerHTML = html;
+    
+    // Auto-scroll to bottom
     logDiv.parentElement.scrollTop = logDiv.parentElement.scrollHeight;
 }
 
 async function stopAutoTrailing(positionKey) {
     try {
+        // Stop the polling interval
         if (state.autoTrailInterval) {
             clearInterval(state.autoTrailInterval);
             state.autoTrailInterval = null;
@@ -1471,14 +1307,17 @@ async function adjustTrigger(points) {
     currentTrigger += points;
     currentTrigger = Math.round(currentTrigger / 0.05) * 0.05;
     
+    // Recalculate limit price with 5% buffer
     const position = state.selectedPosition;
     const isLong = position.quantity > 0;
-    const bufferPercent = 0.05;
+    const bufferPercent = 0.05; // 5% buffer
     
     let limitPrice;
     if (isLong) {
+        // LONG position - SELL order - limit below trigger
         limitPrice = currentTrigger * (1 - bufferPercent);
     } else {
+        // SHORT position - BUY order - limit above trigger
         limitPrice = currentTrigger * (1 + bufferPercent);
     }
     limitPrice = Math.round(limitPrice / 0.05) * 0.05;
@@ -1509,6 +1348,7 @@ async function adjustTrigger(points) {
             document.getElementById('currentTrigger').textContent = currentTrigger.toFixed(2);
             document.getElementById('currentLimit').textContent = limitPrice.toFixed(2);
             
+            // Show success feedback with detailed log
             const messagesDiv = document.getElementById('positionMessages');
             const timestamp = new Date().toLocaleTimeString();
             const direction = points > 0 ? '⬆️ RAISED' : '⬇️ LOWERED';
@@ -1606,6 +1446,7 @@ async function exitPositionImmediately() {
                 </div>
             `;
             
+            // Refresh positions after a delay
             setTimeout(loadPositions, 2000);
         } else {
             alert('Error placing exit order: ' + data.error);
@@ -1635,6 +1476,7 @@ function addLogEntry(message, type = 'info') {
     const activityLog = document.getElementById('activityLog');
     activityLog.insertBefore(entry, activityLog.firstChild);
     
+    // Keep only last 50 entries
     while (activityLog.children.length > 50) {
         activityLog.removeChild(activityLog.lastChild);
     }
