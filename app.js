@@ -840,8 +840,8 @@ function showTrailSlConfig() {
             <p class="text-sm text-gray-600 mb-2">
                 Set trailing stop loss from average price (₹${avgPrice.toFixed(2)})
             </p>
-            <div class="grid grid-cols-2 gap-4 mb-4">
-                <div>
+            <div class="flex gap-4 items-end">
+                <div class="flex-1">
                     <label class="block text-sm font-semibold text-gray-900 mb-2">Trail Points</label>
                     <input
                         type="number"
@@ -851,35 +851,15 @@ function showTrailSlConfig() {
                         class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
                     />
                 </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-900 mb-2">Market Protection</label>
-                    <select
-                        id="marketProtection"
-                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
-                    >
-                        <option value="-1">Automatic (System Default)</option>
-                        <option value="0">None (0%)</option>
-                        <option value="1">1%</option>
-                        <option value="2">2%</option>
-                        <option value="3" selected>3%</option>
-                        <option value="5">5%</option>
-                        <option value="10">10%</option>
-                    </select>
-                </div>
+                <button id="startTrailBtn" class="btn-success text-white font-semibold px-6 py-3 rounded-lg whitespace-nowrap">
+                    Start Trailing SL
+                </button>
             </div>
-            <button id="startTrailBtn" class="w-full btn-success text-white font-semibold px-6 py-3 rounded-lg">
-                Start Trailing SL-M
-            </button>
         </div>
         <div class="p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
-            <strong>ℹ️ About Market Protection:</strong>
-            <ul class="mt-2 space-y-1 ml-4 list-disc">
-                <li><strong>Automatic (-1):</strong> System applies default protection per exchange guidelines</li>
-                <li><strong>None (0):</strong> No price protection - may execute at any price</li>
-                <li><strong>Custom (1-10%):</strong> Limits execution within specified % from trigger price</li>
-            </ul>
+            <strong>ℹ️ About Trailing Stop Loss:</strong>
             <p class="mt-2">
-                The order will be placed as <strong>SL-M (Stop Loss Market)</strong> ${isLong ? 'below' : 'above'} your average price with the selected market protection.
+                The system will place a <strong>SL-M (Stop Loss Market)</strong> order ${isLong ? 'below' : 'above'} your average price with automatic market protection as per exchange guidelines. The order will trail as the market moves in your favor.
             </p>
         </div>
     `;
@@ -894,7 +874,6 @@ async function startTrailing() {
     if (!state.selectedPosition) return;
     
     const trailPoints = parseFloat(document.getElementById('trailPoints').value);
-    const marketProtection = parseInt(document.getElementById('marketProtection').value);
     const position = state.selectedPosition;
     const isLong = position.quantity > 0;
     const avgPrice = position.average_price;
@@ -904,7 +883,7 @@ async function startTrailing() {
     triggerPrice = Math.round(triggerPrice / 0.05) * 0.05; // Round to tick size
     
     try {
-        // Place SL-M order with market_protection parameter
+        // Place SL-M order with market_protection = -1 (automatic)
         const response = await fetch(`${CONFIG.backendUrl}/api/place-order`, {
             method: 'POST',
             headers: {
@@ -920,7 +899,7 @@ async function startTrailing() {
                 product: position.product,
                 order_type: 'SL-M',
                 trigger_price: triggerPrice,
-                market_protection: marketProtection // Market protection parameter
+                market_protection: -1 // Always use automatic market protection
             })
         });
         
@@ -930,15 +909,6 @@ async function startTrailing() {
             // Show success message
             const messagesDiv = document.getElementById('positionMessages');
             
-            let protectionText = '';
-            if (marketProtection === -1) {
-                protectionText = 'Automatic (System Default)';
-            } else if (marketProtection === 0) {
-                protectionText = 'None (0%)';
-            } else {
-                protectionText = `${marketProtection}%`;
-            }
-            
             messagesDiv.innerHTML = `
                 <div class="p-4 bg-green-50 border-2 border-green-200 rounded-lg">
                     <div class="font-bold text-green-800 mb-2">✅ Trailing Stop Loss Activated</div>
@@ -946,15 +916,14 @@ async function startTrailing() {
                         <div>Order ID: ${data.order_id}</div>
                         <div>Order Type: SL-M (Stop Loss Market)</div>
                         <div>Trigger Price: ₹${triggerPrice.toFixed(2)}</div>
-                        <div>Market Protection: ${protectionText}</div>
+                        <div>Market Protection: Automatic (System Default)</div>
                         <div>Trail Points: ${trailPoints}</div>
                     </div>
                 </div>
             `;
             
-            // Note: Real trailing would require WebSocket connection
-            // For now, just show manual adjustment option
-            showManualTrailControls(data.order_id, triggerPrice, marketProtection, trailPoints);
+            // Show manual adjustment controls
+            showManualTrailControls(data.order_id, triggerPrice, trailPoints);
         } else {
             alert('Error placing SL order: ' + data.error);
         }
@@ -963,44 +932,29 @@ async function startTrailing() {
     }
 }
 
-function showManualTrailControls(orderId, currentTrigger, marketProtection, trailPoints) {
+function showManualTrailControls(orderId, currentTrigger, trailPoints) {
     const statusDiv = document.getElementById('trailStatus');
     const contentDiv = document.getElementById('trailStatusContent');
     
-    let protectionText = '';
-    if (marketProtection === -1) {
-        protectionText = 'Automatic';
-    } else if (marketProtection === 0) {
-        protectionText = 'None';
-    } else {
-        protectionText = `${marketProtection}%`;
-    }
-    
     contentDiv.innerHTML = `
         <div class="space-y-4">
-            <div class="grid grid-cols-2 gap-4">
-                <div class="p-4 bg-green-50 rounded-lg">
-                    <div class="text-sm text-gray-600 mb-1">Trigger Price</div>
-                    <div class="text-2xl font-bold text-green-600">₹<span id="currentTrigger">${currentTrigger.toFixed(2)}</span></div>
-                </div>
-                <div class="p-4 bg-blue-50 rounded-lg">
-                    <div class="text-sm text-gray-600 mb-1">Market Protection</div>
-                    <div class="text-2xl font-bold text-blue-600"><span id="currentProtection">${protectionText}</span></div>
-                </div>
+            <div class="p-4 bg-green-50 rounded-lg">
+                <div class="text-sm text-gray-600 mb-1">Current Trigger Price</div>
+                <div class="text-2xl font-bold text-green-600">₹<span id="currentTrigger">${currentTrigger.toFixed(2)}</span></div>
             </div>
             <div>
                 <label class="block text-sm font-semibold text-gray-900 mb-2">Adjust Trigger</label>
-                <div class="flex gap-2">
-                    <button onclick="adjustTrigger(-2)" class="flex-1 border-2 border-gray-300 text-gray-700 font-semibold px-4 py-3 rounded-lg hover:bg-gray-50">
+                <div class="grid grid-cols-4 gap-2">
+                    <button onclick="adjustTrigger(-2)" class="border-2 border-gray-300 text-gray-700 font-semibold px-4 py-3 rounded-lg hover:bg-gray-50">
                         -2 pts
                     </button>
-                    <button onclick="adjustTrigger(-1)" class="flex-1 border-2 border-gray-300 text-gray-700 font-semibold px-4 py-3 rounded-lg hover:bg-gray-50">
+                    <button onclick="adjustTrigger(-1)" class="border-2 border-gray-300 text-gray-700 font-semibold px-4 py-3 rounded-lg hover:bg-gray-50">
                         -1 pt
                     </button>
-                    <button onclick="adjustTrigger(1)" class="flex-1 border-2 border-gray-300 text-gray-700 font-semibold px-4 py-3 rounded-lg hover:bg-gray-50">
+                    <button onclick="adjustTrigger(1)" class="border-2 border-gray-300 text-gray-700 font-semibold px-4 py-3 rounded-lg hover:bg-gray-50">
                         +1 pt
                     </button>
-                    <button onclick="adjustTrigger(2)" class="flex-1 border-2 border-gray-300 text-gray-700 font-semibold px-4 py-3 rounded-lg hover:bg-gray-50">
+                    <button onclick="adjustTrigger(2)" class="border-2 border-gray-300 text-gray-700 font-semibold px-4 py-3 rounded-lg hover:bg-gray-50">
                         +2 pts
                     </button>
                 </div>
@@ -1014,14 +968,12 @@ function showManualTrailControls(orderId, currentTrigger, marketProtection, trai
     statusDiv.classList.remove('hidden');
     statusDiv.dataset.orderId = orderId;
     statusDiv.dataset.currentTrigger = currentTrigger;
-    statusDiv.dataset.marketProtection = marketProtection;
 }
 
 async function adjustTrigger(points) {
     const statusDiv = document.getElementById('trailStatus');
     const orderId = statusDiv.dataset.orderId;
     let currentTrigger = parseFloat(statusDiv.dataset.currentTrigger);
-    const marketProtection = parseInt(statusDiv.dataset.marketProtection);
     
     currentTrigger += points;
     currentTrigger = Math.round(currentTrigger / 0.05) * 0.05;
@@ -1039,7 +991,7 @@ async function adjustTrigger(points) {
                 trigger_price: currentTrigger,
                 order_type: 'SL-M',
                 quantity: Math.abs(state.selectedPosition.quantity),
-                market_protection: marketProtection // Keep the same market protection
+                market_protection: -1 // Always use automatic market protection
             })
         });
         
