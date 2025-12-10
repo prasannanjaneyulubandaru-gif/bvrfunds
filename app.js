@@ -7,7 +7,6 @@ const CONFIG = {
 };
 
 // State management
-// State management
 let state = {
     apiKey: '',
     apiSecret: '',
@@ -18,12 +17,11 @@ let state = {
     orderBasket: [],
     placedOrders: [],
     selectedPosition: null,
-    selectedStrategy: null,  // ADD THIS LINE
+    selectedStrategy: null,
     monitorInterval: null,
     monitorRunning: false,
     autoTrailInterval: null
 };
-
 
 // Initialize
 window.addEventListener('load', () => {
@@ -210,6 +208,7 @@ function showPage(page) {
             document.getElementById('profileSection').classList.remove('hidden');
             state.currentPage = 'strategies';
             updateActiveMenuItem('strategies');
+            setupStrategiesListeners();
             break;
         case 'manage-positions':
             document.getElementById('managePositionsPage').classList.remove('hidden');
@@ -269,9 +268,6 @@ function setupEventListeners() {
     
     // Place Orders page
     setupPlaceOrdersListeners();
-
-    
-    setupStrategiesListeners();  // ADD THIS LINE
     
     // Manage Positions page
     setupManagePositionsListeners();
@@ -312,8 +308,10 @@ function handleLogout() {
         orderBasket: [],
         placedOrders: [],
         selectedPosition: null,
+        selectedStrategy: null,
         monitorInterval: null,
-        monitorRunning: false
+        monitorRunning: false,
+        autoTrailInterval: null
     };
     if (state.monitorInterval) {
         clearInterval(state.monitorInterval);
@@ -720,15 +718,17 @@ function generateExecutionSummary(statuses) {
 }
 
 // ===========================================
-// STRATEGIES PAGE  <-- ADD THIS ENTIRE SECTION HERE
+// STRATEGIES PAGE
 // ===========================================
 
 function setupStrategiesListeners() {
+    console.log('Setting up strategies listeners');
     document.getElementById('bullishSpreadBtn').addEventListener('click', selectBullishSpread);
     document.getElementById('bearishSpreadBtn').addEventListener('click', selectBearishSpread);
 }
 
 async function selectBullishSpread() {
+    console.log('Bullish spread button clicked');
     const lowerPremium = parseFloat(document.getElementById('bullLowerPremium').value);
     const upperPremium = parseFloat(document.getElementById('bullUpperPremium').value);
     
@@ -749,6 +749,7 @@ async function selectBullishSpread() {
         });
         
         const data = await response.json();
+        console.log('Bull spread response:', data);
         
         if (data.success) {
             // Store selected strategy
@@ -788,11 +789,13 @@ async function selectBullishSpread() {
             statusDiv.innerHTML = `<div class="p-4 bg-red-50 border-2 border-red-200 rounded-lg text-red-700">❌ Error: ${data.error}</div>`;
         }
     } catch (error) {
+        console.error('Bull spread error:', error);
         statusDiv.innerHTML = `<div class="p-4 bg-red-50 border-2 border-red-200 rounded-lg text-red-700">❌ Error: ${error.message}</div>`;
     }
 }
 
 async function selectBearishSpread() {
+    console.log('Bearish spread button clicked');
     const lowerPremium = parseFloat(document.getElementById('bearLowerPremium').value);
     const upperPremium = parseFloat(document.getElementById('bearUpperPremium').value);
     
@@ -813,6 +816,7 @@ async function selectBearishSpread() {
         });
         
         const data = await response.json();
+        console.log('Bear spread response:', data);
         
         if (data.success) {
             // Store selected strategy
@@ -852,6 +856,7 @@ async function selectBearishSpread() {
             statusDiv.innerHTML = `<div class="p-4 bg-red-50 border-2 border-red-200 rounded-lg text-red-700">❌ Error: ${data.error}</div>`;
         }
     } catch (error) {
+        console.error('Bear spread error:', error);
         statusDiv.innerHTML = `<div class="p-4 bg-red-50 border-2 border-red-200 rounded-lg text-red-700">❌ Error: ${error.message}</div>`;
     }
 }
@@ -890,7 +895,6 @@ function deployStrategy(strategyType) {
         </div>
     `;
 }
-
 
 // ===========================================
 // MANAGE POSITIONS PAGE
@@ -1071,20 +1075,16 @@ async function startTrailing() {
     triggerPrice = Math.round(triggerPrice / 0.05) * 0.05; // Round to tick size
     
     // Calculate limit price with 5% buffer from trigger (wide range for F&O)
-    // This gives enough room for order to execute before we flip to MARKET
     const bufferPercent = 0.05; // 5% buffer
     let limitPrice;
     if (isLong) {
-        // LONG position - SELL order - limit price below trigger
         limitPrice = triggerPrice * (1 - bufferPercent);
     } else {
-        // SHORT position - BUY order - limit price above trigger
         limitPrice = triggerPrice * (1 + bufferPercent);
     }
-    limitPrice = Math.round(limitPrice / 0.05) * 0.05; // Round to tick size
+    limitPrice = Math.round(limitPrice / 0.05) * 0.05;
     
     try {
-        // Place SL order (not SL-M) with trigger and limit price
         const response = await fetch(`${CONFIG.backendUrl}/api/place-order`, {
             method: 'POST',
             headers: {
@@ -1098,16 +1098,15 @@ async function startTrailing() {
                 transaction_type: isLong ? 'SELL' : 'BUY',
                 quantity: Math.abs(position.quantity),
                 product: position.product,
-                order_type: 'SL', // SL (Stop Loss Limit)
+                order_type: 'SL',
                 trigger_price: triggerPrice,
-                price: limitPrice // Wide limit price for protection
+                price: limitPrice
             })
         });
         
         const data = await response.json();
         
         if (data.success) {
-            // Show success message
             const messagesDiv = document.getElementById('positionMessages');
             
             messagesDiv.innerHTML = `
@@ -1126,7 +1125,6 @@ async function startTrailing() {
                 </div>
             `;
             
-            // Show manual adjustment controls
             showManualTrailControls(data.order_id, triggerPrice, limitPrice, trailPoints);
         } else {
             alert('Error placing SL order: ' + data.error);
@@ -1144,11 +1142,9 @@ async function startAutoTrailing() {
     const isLong = position.quantity > 0;
     const avgPrice = position.average_price;
     
-    // Calculate initial trigger price
     let triggerPrice = isLong ? avgPrice - trailPoints : avgPrice + trailPoints;
     triggerPrice = Math.round(triggerPrice / 0.05) * 0.05;
     
-    // Calculate limit price
     let limitPrice;
     if (isLong) {
         limitPrice = triggerPrice - trailPoints;
@@ -1158,7 +1154,6 @@ async function startAutoTrailing() {
     limitPrice = Math.round(limitPrice / 0.05) * 0.05;
     
     try {
-        // First, place the initial SL order
         const placeResponse = await fetch(`${CONFIG.backendUrl}/api/place-order`, {
             method: 'POST',
             headers: {
@@ -1185,7 +1180,6 @@ async function startAutoTrailing() {
             return;
         }
         
-        // Get instrument token
         const instrumentToken = await getInstrumentToken(position.exchange, position.tradingsymbol);
         
         if (!instrumentToken) {
@@ -1193,7 +1187,6 @@ async function startAutoTrailing() {
             return;
         }
         
-        // Start automated trailing
         const trailResponse = await fetch(`${CONFIG.backendUrl}/api/start-auto-trail`, {
             method: 'POST',
             headers: {
@@ -1233,7 +1226,6 @@ async function startAutoTrailing() {
                 </div>
             `;
             
-            // Show stop button
             showAutoTrailControls(trailData.position_key, triggerPrice, limitPrice);
         } else {
             alert('Error starting auto trail: ' + trailData.error);
@@ -1245,8 +1237,6 @@ async function startAutoTrailing() {
 }
 
 async function getInstrumentToken(exchange, tradingsymbol) {
-    // For now, return a placeholder - in production, you'd fetch from instruments API
-    // This is a simplified version
     try {
         const response = await fetch(`${CONFIG.backendUrl}/api/get-instrument-token`, {
             method: 'POST',
@@ -1286,7 +1276,6 @@ function showAutoTrailControls(positionKey, trigger, limit) {
                 </div>
             </div>
             
-            <!-- Real-time status updates panel -->
             <div class="p-4 bg-gray-900 rounded-lg text-green-400 font-mono text-xs" style="max-height: 300px; overflow-y: auto;">
                 <div class="font-bold text-green-300 mb-2">📊 Real-Time Trail Status</div>
                 <div id="autoTrailLog" class="space-y-1">
@@ -1302,14 +1291,13 @@ function showAutoTrailControls(positionKey, trigger, limit) {
     
     statusDiv.classList.remove('hidden');
     
-    // Start polling for status updates every 2 seconds
     if (state.autoTrailInterval) {
         clearInterval(state.autoTrailInterval);
     }
     
     state.autoTrailInterval = setInterval(() => {
         fetchAutoTrailStatus();
-    }, 2000); // Update every 2 seconds
+    }, 2000);
 }
 
 async function fetchAutoTrailStatus() {
@@ -1337,7 +1325,6 @@ function updateAutoTrailLog(positions, logs) {
     
     let html = '';
     
-    // Show position summaries first
     for (const [posKey, details] of Object.entries(positions)) {
         const currentPrice = details.current_price || 0;
         const trigger = details.trigger_price;
@@ -1370,12 +1357,10 @@ function updateAutoTrailLog(positions, logs) {
         `;
     }
     
-    // Show recent log entries
     if (logs && logs.length > 0) {
         html += '<div class="border-t border-gray-700 my-2 pt-2">';
         html += '<div class="text-gray-400 text-xs mb-1">Recent Updates:</div>';
         
-        // Show last 10 logs
         const recentLogs = logs.slice(-10);
         for (const log of recentLogs) {
             const time = new Date(log.time * 1000).toLocaleTimeString();
@@ -1390,14 +1375,11 @@ function updateAutoTrailLog(positions, logs) {
     }
     
     logDiv.innerHTML = html;
-    
-    // Auto-scroll to bottom
     logDiv.parentElement.scrollTop = logDiv.parentElement.scrollHeight;
 }
 
 async function stopAutoTrailing(positionKey) {
     try {
-        // Stop the polling interval
         if (state.autoTrailInterval) {
             clearInterval(state.autoTrailInterval);
             state.autoTrailInterval = null;
@@ -1486,17 +1468,14 @@ async function adjustTrigger(points) {
     currentTrigger += points;
     currentTrigger = Math.round(currentTrigger / 0.05) * 0.05;
     
-    // Recalculate limit price with 5% buffer
     const position = state.selectedPosition;
     const isLong = position.quantity > 0;
-    const bufferPercent = 0.05; // 5% buffer
+    const bufferPercent = 0.05;
     
     let limitPrice;
     if (isLong) {
-        // LONG position - SELL order - limit below trigger
         limitPrice = currentTrigger * (1 - bufferPercent);
     } else {
-        // SHORT position - BUY order - limit above trigger
         limitPrice = currentTrigger * (1 + bufferPercent);
     }
     limitPrice = Math.round(limitPrice / 0.05) * 0.05;
@@ -1527,7 +1506,6 @@ async function adjustTrigger(points) {
             document.getElementById('currentTrigger').textContent = currentTrigger.toFixed(2);
             document.getElementById('currentLimit').textContent = limitPrice.toFixed(2);
             
-            // Show success feedback with detailed log
             const messagesDiv = document.getElementById('positionMessages');
             const timestamp = new Date().toLocaleTimeString();
             const direction = points > 0 ? '⬆️ RAISED' : '⬇️ LOWERED';
@@ -1625,7 +1603,6 @@ async function exitPositionImmediately() {
                 </div>
             `;
             
-            // Refresh positions after a delay
             setTimeout(loadPositions, 2000);
         } else {
             alert('Error placing exit order: ' + data.error);
@@ -1655,7 +1632,6 @@ function addLogEntry(message, type = 'info') {
     const activityLog = document.getElementById('activityLog');
     activityLog.insertBefore(entry, activityLog.firstChild);
     
-    // Keep only last 50 entries
     while (activityLog.children.length > 50) {
         activityLog.removeChild(activityLog.lastChild);
     }
