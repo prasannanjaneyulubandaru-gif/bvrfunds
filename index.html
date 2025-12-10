@@ -1,1283 +1,1009 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>BVR Funds – Trading Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    :root {
-      --primary: #FE4A03;
-      --primary-dark: #E23F00;
-      --bg: #ffffff;
-      --text-main: #111111;
-      --text-muted: #555555;
-      --border: #eaeaea;
-      --card-bg: #ffffff;
-      --chip-bg: #fff5f0;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BVR Funds</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .animate-slide-up {
+            animation: slideUp 0.6s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .animate-fade-in {
+            animation: fadeIn 0.4s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #FE4A03;
+        }
+        
+        .btn-primary {
+            background: #FE4A03;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-primary:hover {
+            background: #e04203;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(254, 74, 3, 0.3);
+        }
+        
+        .btn-primary:active {
+            transform: translateY(0);
+        }
 
-    * {
-      box-sizing: border-box;
-    }
+        .btn-secondary {
+            background: #6b7280;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
 
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-        sans-serif;
-      background: var(--bg);
-      color: var(--text-main);
-    }
+        .btn-success {
+            background: #10b981;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-success:hover {
+            background: #059669;
+        }
 
-    .app-shell {
-      display: flex;
-      min-height: 100vh;
-      background: #fafafa;
-    }
+        .btn-danger {
+            background: #ef4444;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        
+        .feature-card {
+            transition: all 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        }
 
-    header {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 56px;
-      background: var(--bg);
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 16px;
-      z-index: 20;
-    }
+        .hidden {
+            display: none;
+        }
 
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-weight: 700;
-      letter-spacing: 0.03em;
-      text-transform: uppercase;
-      font-size: 14px;
-    }
+        .sidebar {
+            width: 260px;
+            min-height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            background: white;
+            border-right: 2px solid #e5e7eb;
+            padding-top: 80px;
+        }
 
-    .brand-pill {
-      width: 24px;
-      height: 24px;
-      border-radius: 8px;
-      background: var(--primary);
-    }
+        .main-content {
+            margin-left: 260px;
+            padding-top: 80px;
+        }
 
-    .brand span {
-      color: var(--primary);
-    }
+        .menu-item {
+            padding: 12px 24px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
+        }
 
-    .tag {
-      font-size: 11px;
-      padding: 3px 8px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      color: var(--text-muted);
-    }
+        .menu-item:hover {
+            background: #fef3f0;
+            border-left-color: #FE4A03;
+        }
 
-    .layout {
-      display: flex;
-      width: 100%;
-      padding-top: 56px;
-    }
+        .menu-item.active {
+            background: #fef3f0;
+            border-left-color: #FE4A03;
+            color: #FE4A03;
+            font-weight: 600;
+        }
 
-    /* Sidebar */
-    .sidebar {
-      width: 230px;
-      border-right: 1px solid var(--border);
-      background: var(--bg);
-      padding: 16px 12px;
-      position: sticky;
-      top: 56px;
-      align-self: flex-start;
-      height: calc(100vh - 56px);
-      overflow-y: auto;
-    }
+        .profile-dropdown {
+            position: relative;
+        }
 
-    .sidebar-section-title {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--text-muted);
-      margin: 12px 8px 6px;
-    }
+        .profile-menu {
+            position: absolute;
+            right: 0;
+            top: 100%;
+            margin-top: 0.5rem;
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            min-width: 280px;
+            z-index: 50;
+        }
 
-    .nav-btn {
-      width: 100%;
-      padding: 8px 10px;
-      margin-bottom: 4px;
-      border-radius: 10px;
-      border: none;
-      background: transparent;
-      text-align: left;
-      font-size: 13px;
-      color: var(--text-muted);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      transition: background 0.15s ease, color 0.15s ease;
-    }
+        .monitor-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+        }
 
-    .nav-btn span.label {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
+        .monitor-status.active {
+            background: #dcfce7;
+            color: #166534;
+        }
 
-    .nav-btn span.dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 999px;
-      background: var(--border);
-    }
+        .monitor-status.inactive {
+            background: #fee2e2;
+            color: #991b1b;
+        }
 
-    .nav-btn.active {
-      background: var(--chip-bg);
-      color: var(--primary-dark);
-      font-weight: 600;
-    }
+        .pulse {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
 
-    .nav-btn.active span.dot {
-      background: var(--primary);
-    }
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
 
-    .nav-btn:hover {
-      background: #fff1e8;
-      color: var(--primary-dark);
-    }
+        .log-entry {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-family: 'JetBrains Mono', monospace;
+        }
 
-    /* Main */
-    .main {
-      flex: 1;
-      padding: 20px;
-      max-width: 1000px;
-      margin: 0 auto;
-    }
+        .log-entry.info {
+            background: #f0f9ff;
+            color: #0c4a6e;
+            border-left: 3px solid #0ea5e9;
+        }
 
-    .top-row {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin-bottom: 16px;
-      align-items: center;
-    }
+        .log-entry.success {
+            background: #f0fdf4;
+            color: #166534;
+            border-left: 3px solid #22c55e;
+        }
 
-    .input-inline {
-      display: flex;
-      flex-direction: column;
-      font-size: 11px;
-      color: var(--text-muted);
-      gap: 3px;
-    }
+        .log-entry.warning {
+            background: #fffbeb;
+            color: #92400e;
+            border-left: 3px solid #f59e0b;
+        }
 
-    .input-inline input {
-      padding: 6px 8px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      font-size: 13px;
-      min-width: 260px;
-    }
+        .log-entry.error {
+            background: #fef2f2;
+            color: #991b1b;
+            border-left: 3px solid #ef4444;
+        }
 
-    .status-chip {
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 11px;
-      border: 1px solid var(--border);
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
+        .order-basket-item {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            transition: all 0.2s ease;
+        }
 
-    .status-dot-ok {
-      width: 7px;
-      height: 7px;
-      border-radius: 999px;
-      background: #08c26b;
-    }
+        .order-basket-item:hover {
+            border-color: #FE4A03;
+            box-shadow: 0 2px 8px rgba(254, 74, 3, 0.1);
+        }
 
-    .status-dot-bad {
-      width: 7px;
-      height: 7px;
-      border-radius: 999px;
-      background: #ff4d4f;
-    }
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            margin: 0 4px;
+        }
 
-    .btn {
-      padding: 7px 14px;
-      border-radius: 999px;
-      border: none;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 500;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      white-space: nowrap;
-    }
+        .badge-buy {
+            background: #dcfce7;
+            color: #166534;
+        }
 
-    .btn-primary {
-      background: var(--primary);
-      color: #ffffff;
-    }
+        .badge-sell {
+            background: #fee2e2;
+            color: #991b1b;
+        }
 
-    .btn-primary:hover {
-      background: var(--primary-dark);
-    }
+        .badge-info {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
 
-    .btn-ghost {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text-muted);
-    }
+        .position-card {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
 
-    .btn-ghost:hover {
-      border-color: var(--primary);
-      color: var(--primary-dark);
-    }
+        .position-card:hover {
+            border-color: #FE4A03;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
 
-    .btn-sm {
-      padding: 4px 10px;
-      font-size: 12px;
-    }
+        .position-card.selected {
+            border-color: #FE4A03;
+            background: #fef3f0;
+        }
 
-    .cards-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.8fr);
-      gap: 16px;
-    }
+        .position-card.trailing-active {
+            border-left: 4px solid #10b981;
+        }
 
-    @media (max-width: 900px) {
-      .sidebar {
-        display: none;
-      }
-      .cards-grid {
-        grid-template-columns: minmax(0, 1fr);
-      }
-      .main {
-        padding: 16px;
-      }
-    }
+        .trailing-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            background: #dcfce7;
+            color: #166534;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+        }
 
-    .card {
-      background: var(--card-bg);
-      border-radius: 16px;
-      border: 1px solid var(--border);
-      padding: 14px 14px 12px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.03);
-    }
-
-    .card-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 8px;
-    }
-
-    .card-title {
-      font-size: 14px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .card-subtitle {
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-
-    .pill {
-      font-size: 11px;
-      padding: 3px 8px;
-      border-radius: 999px;
-      background: #fff0e8;
-      color: var(--primary-dark);
-    }
-
-    .form-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px 12px;
-      margin-top: 6px;
-      margin-bottom: 6px;
-    }
-
-    @media (max-width: 700px) {
-      .form-grid {
-        grid-template-columns: minmax(0, 1fr);
-      }
-    }
-
-    label {
-      font-size: 11px;
-      color: var(--text-muted);
-      display: block;
-      margin-bottom: 3px;
-    }
-
-    input[type="text"],
-    input[type="number"],
-    select {
-      width: 100%;
-      padding: 6px 8px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      font-size: 13px;
-    }
-
-    textarea {
-      width: 100%;
-      padding: 8px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      font-size: 12px;
-      resize: vertical;
-      min-height: 80px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-        "Liberation Mono", "Courier New", monospace;
-    }
-
-    .section-actions {
-      display: flex;
-      gap: 8px;
-      margin-top: 4px;
-      flex-wrap: wrap;
-    }
-
-    .section-output {
-      margin-top: 8px;
-      padding: 8px;
-      border-radius: 10px;
-      background: #fafafa;
-      border: 1px dashed var(--border);
-      max-height: 260px;
-      overflow: auto;
-      font-size: 12px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-        "Liberation Mono", "Courier New", monospace;
-      white-space: pre-wrap;
-    }
-
-    .logs-list {
-      list-style: none;
-      padding-left: 0;
-      margin: 6px 0 0;
-      max-height: 220px;
-      overflow: auto;
-      font-size: 11px;
-    }
-
-    .logs-list li {
-      padding: 4px 0;
-      border-bottom: 1px dashed #eee;
-    }
-
-    .badge {
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      color: var(--text-muted);
-    }
-
-    .flex-row {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    .muted {
-      color: var(--text-muted);
-      font-size: 11px;
-    }
-
-    .danger-text {
-      color: #d93025;
-    }
-  </style>
+        .trailing-indicator .pulse-dot {
+            width: 6px;
+            height: 6px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
 </head>
-<body>
-  <div class="app-shell">
-    <header>
-      <div class="brand">
-        <div class="brand-pill"></div>
-        <span>BVR Funds</span>
-      </div>
-      <div class="flex-row">
-        <span id="sessionStatus" class="status-chip">
-          <span class="status-dot-bad"></span> No session
-        </span>
-        <span id="userLabel" class="tag">Not connected</span>
-      </div>
-    </header>
+<body class="min-h-screen bg-gray-50">
+    <!-- Navigation Bar -->
+    <nav class="border-b border-gray-200 bg-white fixed top-0 left-0 right-0 z-50">
+        <div class="px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-[#FE4A03] rounded-sm flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                    </svg>
+                </div>
+                <span class="text-xl font-bold text-gray-900">BVR Funds</span>
+            </div>
+            
+            <!-- Profile Dropdown -->
+            <div id="profileSection" class="hidden profile-dropdown">
+                <button id="profileBtn" class="flex items-center gap-3 hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors">
+                    <div class="text-right">
+                        <div id="profileName" class="text-sm font-semibold text-gray-900">Loading...</div>
+                        <div id="profileEmail" class="text-xs text-gray-500">Loading...</div>
+                    </div>
+                    <div class="w-10 h-10 bg-[#FE4A03] rounded-full flex items-center justify-center">
+                        <span id="profileInitials" class="text-white font-bold text-sm">?</span>
+                    </div>
+                    <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                
+                <!-- Dropdown Menu -->
+                <div id="profileMenu" class="profile-menu hidden">
+                    <div class="p-4 border-b border-gray-200">
+                        <div class="font-semibold text-gray-900 mb-1" id="menuUserName">User Name</div>
+                        <div class="text-sm text-gray-600 mono" id="menuUserId">USER123</div>
+                        <div class="text-xs text-gray-500 mt-1" id="menuEmail">user@example.com</div>
+                    </div>
+                    <div class="p-3">
+                        <div class="px-3 py-2 text-xs text-gray-500 font-semibold uppercase">Account Details</div>
+                        <div class="px-3 py-2 text-sm">
+                            <div class="flex justify-between mb-2">
+                                <span class="text-gray-600">User Type:</span>
+                                <span class="font-semibold text-gray-900" id="menuUserType">-</span>
+                            </div>
+                            <div class="flex justify-between mb-2">
+                                <span class="text-gray-600">Broker:</span>
+                                <span class="font-semibold text-gray-900" id="menuBroker">-</span>
+                            </div>
+                            <div class="text-gray-600 mb-1">Products:</div>
+                            <div id="menuProducts" class="flex flex-wrap gap-1"></div>
+                        </div>
+                    </div>
+                    <div class="p-3 border-t border-gray-200">
+                        <button id="logoutBtn" class="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
 
-    <div class="layout">
-      <!-- Sidebar -->
-      <aside class="sidebar">
-        <div class="sidebar-section-title">Core</div>
-        <button class="nav-btn active" data-section="session">
-          <span class="label">
-            <span class="dot"></span> Session & Backend
-          </span>
-        </button>
-        <button class="nav-btn" data-section="account">
-          <span class="label">
-            <span class="dot"></span> Account Snapshot
-          </span>
-        </button>
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar hidden">
+        <div class="py-4">
+            <div class="px-6 mb-4">
+                <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Menu</h3>
+            </div>
+            <nav>
+                <div class="menu-item active" data-page="dashboard">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                        </svg>
+                        <span>Dashboard</span>
+                    </div>
+                </div>
+                <div class="menu-item" data-page="place-orders">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        <span>Place Orders</span>
+                    </div>
+                </div>
+                <div class="menu-item" data-page="strategies">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                        </svg>
+                        <span>Strategies</span>
+                    </div>
+                </div>
+                <div class="menu-item" data-page="manage-positions">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                        </svg>
+                        <span>Manage Positions</span>
+                    </div>
+                </div>
+                <div class="menu-item" data-page="chart-monitor">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                        <span>Chart Monitor</span>
+                    </div>
+                </div>
+            </nav>
+        </div>
+    </aside>
 
-        <div class="sidebar-section-title">Signals & Tools</div>
-        <button class="nav-btn" data-section="candle">
-          <span class="label">
-            <span class="dot"></span> Candle Alert
-          </span>
-        </button>
-        <button class="nav-btn" data-section="monitor">
-          <span class="label">
-            <span class="dot"></span> Background Monitor
-          </span>
-        </button>
-        <button class="nav-btn" data-section="trailing">
-          <span class="label">
-            <span class="dot"></span> Trailing Status
-          </span>
-        </button>
+    <!-- Main Content Area -->
+    <div id="mainContent" class="main-content">
+        
+        <!-- Login Page -->
+        <div id="loginPage" class="min-h-screen flex items-center justify-center px-6">
+            <div class="max-w-2xl w-full animate-slide-up">
+                <div class="text-center mb-12">
+                    <h1 class="text-5xl font-bold text-gray-900 mb-4">Welcome Back</h1>
+                    <p class="text-lg text-gray-600">Enter your Zerodha Kite API credentials to continue</p>
+                </div>
 
-        <div class="sidebar-section-title">Strategies</div>
-        <button class="nav-btn" data-section="spreads">
-          <span class="label">
-            <span class="dot"></span> Bull/Bear Spreads
-          </span>
-        </button>
+                <div class="bg-white rounded-2xl border-2 border-gray-200 p-8 shadow-sm">
+                    <form id="credentialsForm" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-900 mb-2">API Key</label>
+                            <input
+                                type="text"
+                                id="apiKey"
+                                placeholder="Enter your Kite API Key"
+                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:border-[#FE4A03] transition-colors mono text-sm"
+                                required
+                            />
+                        </div>
 
-        <div class="sidebar-section-title">Utilities</div>
-        <button class="nav-btn" data-section="utils">
-          <span class="label">
-            <span class="dot"></span> Email & Logout
-          </span>
-        </button>
-      </aside>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-900 mb-2">API Secret</label>
+                            <input
+                                type="password"
+                                id="apiSecret"
+                                placeholder="Enter your API Secret"
+                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:border-[#FE4A03] transition-colors mono text-sm"
+                                required
+                            />
+                        </div>
 
-      <!-- Main content -->
-      <main class="main">
-        <!-- Top row: backend URL + quick actions -->
-        <div class="top-row">
-          <div class="input-inline">
-            <span>Backend URL</span>
-            <input
-              type="text"
-              id="https://bvrfunds-backend.onrender.com"
-              placeholder="http://localhost:5000"
-            />
-          </div>
-          <button class="btn btn-ghost btn-sm" id="healthCheckBtn">
-            Ping /health
-          </button>
-          <span class="muted">
-            Works with GitHub Pages + Render / local Flask
-          </span>
+                        <div id="errorMessage" class="p-4 bg-red-50 border-2 border-red-200 rounded-lg hidden">
+                            <p class="text-sm text-red-700"></p>
+                        </div>
+
+                        <button
+                            type="submit"
+                            class="w-full btn-primary text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2"
+                        >
+                            Continue to Kite Login
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                            </svg>
+                        </button>
+                    </form>
+
+                    <div class="mt-8 pt-8 border-t border-gray-200">
+                        <p class="text-sm text-gray-500 text-center">
+                            Don't have API credentials? 
+                            <a href="https://kite.zerodha.com/connect/api" target="_blank" rel="noopener noreferrer" class="text-[#FE4A03] font-semibold hover:underline">
+                                Create API App
+                            </a>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Feature Cards -->
+                <div class="grid grid-cols-3 gap-6 mt-12">
+                    <div class="feature-card bg-white p-6 rounded-xl border-2 border-gray-200">
+                        <div class="w-10 h-10 bg-[#FE4A03] bg-opacity-10 rounded-lg flex items-center justify-center mb-4">
+                            <svg class="w-5 h-5 text-[#FE4A03]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                            </svg>
+                        </div>
+                        <h3 class="font-semibold text-gray-900 mb-2">Secure</h3>
+                        <p class="text-sm text-gray-600">Bank-grade encryption for your trading data</p>
+                    </div>
+
+                    <div class="feature-card bg-white p-6 rounded-xl border-2 border-gray-200">
+                        <div class="w-10 h-10 bg-[#FE4A03] bg-opacity-10 rounded-lg flex items-center justify-center mb-4">
+                            <svg class="w-5 h-5 text-[#FE4A03]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                            </svg>
+                        </div>
+                        <h3 class="font-semibold text-gray-900 mb-2">Fast</h3>
+                        <p class="text-sm text-gray-600">Lightning-quick order execution</p>
+                    </div>
+
+                    <div class="feature-card bg-white p-6 rounded-xl border-2 border-gray-200">
+                        <div class="w-10 h-10 bg-[#FE4A03] bg-opacity-10 rounded-lg flex items-center justify-center mb-4">
+                            <svg class="w-5 h-5 text-[#FE4A03]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                            </svg>
+                        </div>
+                        <h3 class="font-semibold text-gray-900 mb-2">Smart</h3>
+                        <p class="text-sm text-gray-600">Advanced algo trading strategies</p>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <!-- SECTION: Session & Backend -->
-        <section id="section-session" class="section">
-          <div class="cards-grid">
-            <div class="card">
-              <div class="card-header">
-                <div>
-                  <div class="card-title">Generate Kite Session</div>
-                  <div class="card-subtitle">
-                    Use request_token from Zerodha login redirect
-                  </div>
+        <!-- Processing Token -->
+        <div id="tokenPage" class="min-h-screen flex items-center justify-center px-6 hidden">
+            <div class="max-w-xl w-full animate-fade-in">
+                <div class="text-center mb-8">
+                    <h2 class="text-3xl font-bold text-gray-900 mb-2">Complete Login</h2>
+                    <p class="text-gray-600">Authenticating with Zerodha Kite...</p>
                 </div>
-                <span class="pill">Step 1</span>
-              </div>
 
-              <div class="form-grid">
-                <div>
-                  <label>API Key</label>
-                  <input type="text" id="apiKey" />
-                </div>
-                <div>
-                  <label>API Secret</label>
-                  <input type="text" id="apiSecret" />
-                </div>
-                <div>
-                  <label>Request Token</label>
-                  <input type="text" id="requestToken" />
-                </div>
-                <div class="muted">
-                  Paste the token from the Kite redirect URL after login.
-                </div>
-              </div>
+                <div class="bg-white rounded-2xl border-2 border-gray-200 p-8 shadow-sm">
+                    <div class="flex flex-col items-center gap-4">
+                        <div class="w-16 h-16 bg-[#FE4A03] bg-opacity-10 rounded-full flex items-center justify-center">
+                            <svg class="w-8 h-8 text-[#FE4A03] animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-gray-900 font-semibold mb-1">Processing authentication...</p>
+                            <p class="text-sm text-gray-600">Request Token: <span id="displayToken" class="mono text-[#FE4A03]"></span></p>
+                        </div>
+                    </div>
 
-              <div class="section-actions">
-                <button class="btn btn-primary" id="generateSessionBtn">
-                  Generate Session
-                </button>
-              </div>
+                    <div id="tokenErrorMessage" class="mt-6 p-4 bg-amber-50 border-2 border-amber-200 rounded-lg hidden">
+                        <p class="text-sm text-amber-700"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-              <div id="sessionOutput" class="section-output">
-                Session output will appear here…
-              </div>
+        <!-- Dashboard Page -->
+        <div id="dashboardPage" class="p-8 hidden">
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
+                <p class="text-gray-600">Welcome to BVR Funds</p>
             </div>
 
-            <div class="card">
-              <div class="card-header">
-                <div>
-                  <div class="card-title">Quick Account Snapshot</div>
-                  <div class="card-subtitle">
-                    Profile + Margins once you’re connected
-                  </div>
-                </div>
-                <span class="pill">Step 2</span>
-              </div>
-
-              <div class="section-actions">
-                <button class="btn btn-ghost btn-sm" id="loadProfileBtn">
-                  Load Profile
-                </button>
-                <button class="btn btn-ghost btn-sm" id="loadMarginsBtn">
-                  Load Margins
-                </button>
-              </div>
-
-              <div id="quickSnapshotOutput" class="section-output">
-                Waiting for session…
-              </div>
+            <div class="bg-white border-2 border-gray-200 rounded-xl p-8">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">Getting Started</h2>
+                <p class="text-gray-600 mb-4">Your trading platform is ready. Use the menu on the left to:</p>
+                <ul class="space-y-2 text-gray-600">
+                    <li class="flex items-start gap-2">
+                        <span class="text-[#FE4A03]">•</span>
+                        <span>Place orders with basket functionality</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-[#FE4A03]">•</span>
+                        <span>Deploy and manage your trading strategies</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-[#FE4A03]">•</span>
+                        <span>Manage positions with automated trailing stop loss</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-[#FE4A03]">•</span>
+                        <span>Monitor charts and get alerts</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-[#FE4A03]">•</span>
+                        <span>Track your portfolio performance</span>
+                    </li>
+                </ul>
             </div>
-          </div>
-        </section>
+        </div>
 
-        <!-- SECTION: Account Snapshot -->
-        <section id="section-account" class="section" style="display: none">
-          <div class="cards-grid">
-            <div class="card">
-              <div class="card-header">
-                <div>
-                  <div class="card-title">Positions</div>
-                  <div class="card-subtitle">
-                    Live open positions from /api/positions
-                  </div>
-                </div>
-                <button class="btn btn-ghost btn-sm" id="refreshPositionsBtn">
-                  Refresh
-                </button>
-              </div>
-              <div id="positionsOutput" class="section-output">
-                No data yet.
-              </div>
+        <!-- Place Orders Page -->
+        <div id="placeOrdersPage" class="p-8 hidden">
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">Place Orders</h1>
+                <p class="text-gray-600">Create and manage your order basket</p>
             </div>
 
-            <div class="card">
-              <div class="card-header">
-                <div>
-                  <div class="card-title">Holdings & Orders</div>
-                  <div class="card-subtitle">
-                    /api/holdings and /api/orders
-                  </div>
-                </div>
-                <div class="flex-row">
-                  <button class="btn btn-ghost btn-sm" id="refreshHoldingsBtn">
-                    Holdings
-                  </button>
-                  <button class="btn btn-ghost btn-sm" id="refreshOrdersBtn">
-                    Orders
-                  </button>
-                </div>
-              </div>
-              <div id="holdingsOrdersOutput" class="section-output">
-                No data yet.
-              </div>
-            </div>
-          </div>
-        </section>
+            <!-- Order Entry Form -->
+            <div class="bg-white border-2 border-gray-200 rounded-xl p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">Order Entry</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Trading Symbol</label>
+                        <input
+                            type="text"
+                            id="orderSymbol"
+                            placeholder="e.g., NIFTY25JAN26000CE"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 mono text-sm"
+                        />
+                    </div>
 
-        <!-- SECTION: Candle Alert -->
-        <section id="section-candle" class="section" style="display: none">
-          <div class="cards-grid">
-            <div class="card">
-              <div class="card-header">
-                <div>
-                  <div class="card-title">Check Candle Strength</div>
-                  <div class="card-subtitle">
-                    Single call to /api/check-candle
-                  </div>
-                </div>
-                <span class="pill">Signal</span>
-              </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Exchange</label>
+                        <select
+                            id="orderExchange"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                        >
+                            <option value="NFO">NFO</option>
+                            <option value="NSE">NSE</option>
+                            <option value="BSE">BSE</option>
+                            <option value="CDS">CDS</option>
+                            <option value="MCX">MCX</option>
+                        </select>
+                    </div>
 
-              <div class="form-grid">
-                <div>
-                  <label>Instrument Token</label>
-                  <input
-                    type="number"
-                    id="candleInstrument"
-                    value="256265"
-                  />
-                </div>
-                <div>
-                  <label>Interval</label>
-                  <select id="candleInterval">
-                    <option value="15minute">15minute</option>
-                    <option value="5minute">5minute</option>
-                    <option value="30minute">30minute</option>
-                    <option value="60minute">60minute</option>
-                    <option value="day">day</option>
-                  </select>
-                </div>
-                <div>
-                  <label>Body % Threshold</label>
-                  <input type="number" id="candleThreshold" value="75" />
-                </div>
-                <div class="muted">
-                  Email alert will be sent if body% ≥ threshold.
-                </div>
-              </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Quantity</label>
+                        <input
+                            type="number"
+                            id="orderQuantity"
+                            value="15"
+                            min="1"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                        />
+                    </div>
 
-              <div class="section-actions">
-                <button class="btn btn-primary" id="checkCandleBtn">
-                  Run Candle Check
-                </button>
-              </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Transaction Type</label>
+                        <div class="flex gap-2">
+                            <button id="buyBtn" class="flex-1 px-4 py-3 border-2 border-gray-200 rounded-lg font-semibold text-sm transition-all bg-green-500 text-white">
+                                BUY
+                            </button>
+                            <button id="sellBtn" class="flex-1 px-4 py-3 border-2 border-gray-200 rounded-lg font-semibold text-sm transition-all">
+                                SELL
+                            </button>
+                        </div>
+                    </div>
 
-              <div id="candleOutput" class="section-output">
-                Result will appear here…
-              </div>
-            </div>
-          </div>
-        </section>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Order Type</label>
+                        <select
+                            id="orderType"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                        >
+                            <option value="MARKET">MARKET</option>
+                            <option value="LIMIT">LIMIT</option>
+                            <option value="SL">SL (Stop Loss)</option>
+                            <option value="SL-M">SL-M (Stop Loss Market)</option>
+                        </select>
+                    </div>
 
-        <!-- SECTION: Monitor -->
-        <section id="section-monitor" class="section" style="display: none">
-          <div class="cards-grid">
-            <div class="card">
-              <div class="card-header">
-                <div>
-                  <div class="card-title">Background Candle Monitor</div>
-                  <div class="card-subtitle">
-                    /api/start-monitor & /api/stop-monitor
-                  </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Product</label>
+                        <select
+                            id="orderProduct"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                        >
+                            <option value="MIS">MIS</option>
+                            <option value="CNC">CNC</option>
+                            <option value="NRML">NRML</option>
+                        </select>
+                    </div>
                 </div>
-                <span class="pill">Daemon</span>
-              </div>
 
-              <div class="form-grid">
-                <div>
-                  <label>Instrument Token</label>
-                  <input
-                    type="number"
-                    id="monitorInstrument"
-                    value="256265"
-                  />
-                </div>
-                <div>
-                  <label>Interval</label>
-                  <select id="monitorInterval">
-                    <option value="15minute">15minute</option>
-                    <option value="5minute">5minute</option>
-                    <option value="30minute">30minute</option>
-                    <option value="60minute">60minute</option>
-                    <option value="day">day</option>
-                  </select>
-                </div>
-                <div>
-                  <label>Body % Threshold</label>
-                  <input type="number" id="monitorThreshold" value="75" />
-                </div>
-                <div>
-                  <label>Frequency (seconds)</label>
-                  <input type="number" id="monitorFrequency" value="300" />
-                </div>
-              </div>
+                <!-- Price fields (conditional) -->
+                <div id="priceFields" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 hidden">
+                    <div id="limitPriceField" class="hidden">
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Price</label>
+                        <input
+                            type="number"
+                            id="orderPrice"
+                            step="0.05"
+                            placeholder="0.00"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                        />
+                    </div>
 
-              <div class="section-actions">
-                <button class="btn btn-primary" id="startMonitorBtn">
-                  Start Monitor
-                </button>
-                <button class="btn btn-ghost" id="stopMonitorBtn">
-                  Stop Monitor
-                </button>
-              </div>
-
-              <div id="monitorOutput" class="section-output">
-                Monitor status will appear here…
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- SECTION: Trailing Status -->
-        <section id="section-trailing" class="section" style="display: none">
-          <div class="cards-grid">
-            <div class="card">
-              <div class="card-header">
-                <div>
-                  <div class="card-title">Trailing Positions</div>
-                  <div class="card-subtitle">
-                    Live view from /api/get-trail-status
-                  </div>
+                    <div id="triggerPriceField" class="hidden">
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Trigger Price</label>
+                        <input
+                            type="number"
+                            id="orderTriggerPrice"
+                            step="0.05"
+                            placeholder="0.00"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                        />
+                    </div>
                 </div>
-                <button class="btn btn-ghost btn-sm" id="refreshTrailBtn">
-                  Refresh
-                </button>
-              </div>
 
-              <div id="trailingPositionsOutput" class="section-output">
-                No trailing positions yet.
-              </div>
+                <div class="flex gap-4">
+                    <button id="addOrderBtn" class="btn-primary text-white font-semibold px-6 py-3 rounded-lg">
+                        Add to Basket
+                    </button>
+                </div>
             </div>
 
-            <div class="card">
-              <div class="card-header">
-                <div>
-                  <div class="card-title">Trailing Logs</div>
-                  <div class="card-subtitle">
-                    Last 20 log entries for your user_id
-                  </div>
+            <!-- Order Basket -->
+            <div class="bg-white border-2 border-gray-200 rounded-xl p-6 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-gray-900">Order Basket</h2>
+                    <button id="clearBasketBtn" class="btn-danger text-white font-semibold px-4 py-2 rounded-lg text-sm">
+                        Clear All
+                    </button>
                 </div>
-                <span class="badge">Read-only</span>
-              </div>
-              <ul id="trailingLogsList" class="logs-list">
-                <!-- logs -->
-              </ul>
-            </div>
-          </div>
-        </section>
-
-        <!-- SECTION: Spreads -->
-        <section id="section-spreads" class="section" style="display: none">
-          <div class="cards-grid">
-            <div class="card">
-              <div class="card-header">
-                <div>
-                  <div class="card-title">Bull Spread Helper</div>
-                  <div class="card-subtitle">
-                    /api/get-bull-spread (Mock NFO logic in backend)
-                  </div>
+                <div id="orderBasket" class="space-y-2">
+                    <div class="text-center text-gray-500 py-8">No orders in basket</div>
                 </div>
-                <span class="pill">Bullish</span>
-              </div>
-
-              <div class="form-grid">
-                <div>
-                  <label>Lower Premium</label>
-                  <input type="number" id="bullLower" value="0" />
-                </div>
-                <div>
-                  <label>Upper Premium</label>
-                  <input type="number" id="bullUpper" value="100" />
-                </div>
-              </div>
-
-              <div class="section-actions">
-                <button class="btn btn-primary" id="getBullSpreadBtn">
-                  Get Bull Spread
-                </button>
-              </div>
-              <div id="bullSpreadOutput" class="section-output">
-                Result will appear here…
-              </div>
             </div>
 
-            <div class="card">
-              <div class="card-header">
-                <div>
-                  <div class="card-title">Bear Spread Helper</div>
-                  <div class="card-subtitle">
-                    /api/get-bear-spread
-                  </div>
+            <!-- Action Buttons -->
+            <div class="bg-white border-2 border-gray-200 rounded-xl p-6">
+                <div class="flex gap-4">
+                    <button id="checkMarginBtn" class="border-2 border-[#FE4A03] text-[#FE4A03] font-semibold px-6 py-3 rounded-lg hover:bg-[#FE4A03] hover:text-white transition-colors">
+                        Check Margin
+                    </button>
+                    <button id="placeAllOrdersBtn" class="btn-success text-white font-semibold px-6 py-3 rounded-lg">
+                        Place All Orders
+                    </button>
+                    <button id="refreshOrderStatusBtn" class="btn-secondary text-white font-semibold px-6 py-3 rounded-lg">
+                        Refresh Status
+                    </button>
                 </div>
-                <span class="pill">Bearish</span>
-              </div>
-
-              <div class="form-grid">
-                <div>
-                  <label>Lower Premium</label>
-                  <input type="number" id="bearLower" value="0" />
-                </div>
-                <div>
-                  <label>Upper Premium</label>
-                  <input type="number" id="bearUpper" value="100" />
-                </div>
-              </div>
-
-              <div class="section-actions">
-                <button class="btn btn-primary" id="getBearSpreadBtn">
-                  Get Bear Spread
-                </button>
-              </div>
-              <div id="bearSpreadOutput" class="section-output">
-                Result will appear here…
-              </div>
+                <div id="orderStatusOutput" class="mt-6"></div>
+                <div id="orderSummaryOutput" class="mt-6"></div>
             </div>
-          </div>
-        </section>
+        </div>
 
-        <!-- SECTION: Utils -->
-        <section id="section-utils" class="section" style="display: none">
-          <div class="cards-grid">
-            <div class="card">
-              <div class="card-header">
-                <div>
-                  <div class="card-title">Test Email Alert</div>
-                  <div class="card-subtitle">
-                    /api/test-email using your Gmail app password
-                  </div>
-                </div>
-                <span class="pill">Mail</span>
-              </div>
-
-              <div class="section-actions">
-                <button class="btn btn-primary" id="testEmailBtn">
-                  Send Test Email
-                </button>
-              </div>
-
-              <div id="testEmailOutput" class="section-output">
-                Output will appear here…
-              </div>
-
-              <p class="muted" style="margin-top: 8px;">
-                <span class="danger-text">Security tip:</span> avoid hardcoding
-                Gmail passwords in public repos; use environment variables
-                or secrets on your server.
-              </p>
+        <!-- Strategies Page -->
+        <!-- Strategies Page -->
+        <div id="strategiesPage" class="p-8 hidden">
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">Strategies</h1>
+                <p class="text-gray-600">Deploy algorithmic trading strategies</p>
             </div>
 
-            <div class="card">
-              <div class="card-header">
-                <div>
-                  <div class="card-title">Logout</div>
-                  <div class="card-subtitle">
-                    /api/logout & clear local state
-                  </div>
+            <!-- Strategy Cards -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                <!-- Bullish Future Spread -->
+                <div class="bg-white border-2 border-gray-200 rounded-xl p-6">
+                    <div class="flex items-start gap-4 mb-6">
+                        <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-900 mb-1">Bullish Future Spread</h2>
+                            <p class="text-sm text-gray-600">Profit from upward price movement with hedged risk</p>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-4 mb-6">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-900 mb-2">Lower Premium Range</label>
+                            <input
+                                type="number"
+                                id="bullLowerPremium"
+                                value="0"
+                                step="0.5"
+                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                            />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-900 mb-2">Upper Premium Range</label>
+                            <input
+                                type="number"
+                                id="bullUpperPremium"
+                                value="100"
+                                step="0.5"
+                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                            />
+                        </div>
+                    </div>
+                    
+                    <button id="bullishSpreadBtn" class="w-full btn-success text-white font-semibold px-6 py-3 rounded-lg mb-4">
+                        🟢 Select Bullish Spread
+                    </button>
+                    
+                    <div id="bullishStatus"></div>
                 </div>
-                <span class="pill">Session</span>
-              </div>
-
-              <div class="section-actions">
-                <button class="btn btn-ghost" id="logoutBtn">
-                  Logout
-                </button>
-              </div>
-
-              <div id="logoutOutput" class="section-output">
-                Not logged out yet.
-              </div>
+                
+                <!-- Bearish Future Spread -->
+                <div class="bg-white border-2 border-gray-200 rounded-xl p-6">
+                    <div class="flex items-start gap-4 mb-6">
+                        <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-900 mb-1">Bearish Future Spread</h2>
+                            <p class="text-sm text-gray-600">Profit from downward price movement with hedged risk</p>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-4 mb-6">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-900 mb-2">Lower Premium Range</label>
+                            <input
+                                type="number"
+                                id="bearLowerPremium"
+                                value="0"
+                                step="0.5"
+                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                            />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-900 mb-2">Upper Premium Range</label>
+                            <input
+                                type="number"
+                                id="bearUpperPremium"
+                                value="100"
+                                step="0.5"
+                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                            />
+                        </div>
+                    </div>
+                    
+                    <button id="bearishSpreadBtn" class="w-full btn-danger text-white font-semibold px-6 py-3 rounded-lg mb-4">
+                        🔴 Select Bearish Spread
+                    </button>
+                    
+                    <div id="bearishStatus"></div>
+                </div>
+                
             </div>
-          </div>
-        </section>
-      </main>
+            
+            <!-- Strategy Info -->
+            <div class="mt-8 bg-blue-50 border-2 border-blue-200 rounded-xl p-6">
+                <h3 class="font-bold text-blue-900 mb-3">ℹ️ How Future Spreads Work</h3>
+                <div class="space-y-2 text-sm text-blue-800">
+                    <p><strong>Bullish Spread:</strong> Buy futures + Buy PUT option for downside protection. Profits when price moves up.</p>
+                    <p><strong>Bearish Spread:</strong> Sell futures + Buy CALL option for upside protection. Profits when price moves down.</p>
+                    <p class="mt-3 text-xs text-blue-600">💡 Both strategies use options as hedges to limit risk while maintaining profit potential.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Manage Positions Page -->
+        <div id="managePositionsPage" class="p-8 hidden">
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">Manage Positions</h1>
+                <p class="text-gray-600">Monitor and manage your open positions with automated trailing stop loss</p>
+            </div>
+
+            <!-- WebSocket Status -->
+            <div id="wsStatus" class="mb-4"></div>
+
+            <!-- Positions List -->
+            <div class="bg-white border-2 border-gray-200 rounded-xl p-6 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-gray-900">Active Positions</h2>
+                    <button id="refreshPositionsBtn" class="btn-secondary text-white font-semibold px-4 py-2 rounded-lg text-sm">
+                        🔄 Refresh
+                    </button>
+                </div>
+                <div id="positionsList">
+                    <div class="text-center text-gray-500 py-8">Loading positions...</div>
+                </div>
+            </div>
+
+            <!-- Position Actions Panel -->
+            <div id="positionActionsPanel" class="hidden">
+                <div class="bg-white border-2 border-gray-200 rounded-xl p-6 mb-6">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">Position Actions</h2>
+                    <div id="selectedPositionInfo"></div>
+                    <div class="flex gap-4 mt-4">
+                        <button id="trailSlBtn" class="btn-success text-white font-semibold px-6 py-3 rounded-lg">
+                            🎯 Setup Trail SL
+                        </button>
+                        <button id="exitImmediatelyBtn" class="btn-danger text-white font-semibold px-6 py-3 rounded-lg">
+                            ⚡ Exit Immediately
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Trail SL Configuration -->
+                <div id="trailSlConfig" class="bg-white border-2 border-gray-200 rounded-xl p-6 mb-6 hidden">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">Trailing Stop Loss Configuration</h2>
+                    <div id="trailConfigContent"></div>
+                </div>
+
+                <!-- Trail Status -->
+                <div id="trailStatus" class="bg-white border-2 border-gray-200 rounded-xl p-6 hidden">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">Trailing Status</h2>
+                    <div id="trailStatusContent"></div>
+                </div>
+            </div>
+
+            <!-- Messages -->
+            <div id="positionMessages" class="bg-white border-2 border-gray-200 rounded-xl p-6"></div>
+        </div>
+
+        <!-- Chart Monitor Page -->
+        <div id="chartMonitorPage" class="p-8 hidden">
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">Chart Monitor</h1>
+                <p class="text-gray-600">Monitor candle strength and get email alerts</p>
+            </div>
+
+            <!-- Monitor Controls -->
+            <div class="bg-white border-2 border-gray-200 rounded-xl p-6 mb-6">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-900 mb-1">Monitor Status</h2>
+                        <p class="text-sm text-gray-600">Checks every 5 minutes for strong candles</p>
+                    </div>
+                    <div id="monitorStatus" class="monitor-status inactive">
+                        <div class="pulse bg-red-600"></div>
+                        <span>Stopped</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Instrument Token</label>
+                        <input
+                            type="number"
+                            id="instrumentToken"
+                            value="256265"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 mono text-sm"
+                        />
+                        <p class="text-xs text-gray-500 mt-1">Default: NIFTY 50 (256265)</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Interval</label>
+                        <select
+                            id="intervalSelect"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                        >
+                            <option value="minute">1 Minute</option>
+                            <option value="3minute">3 Minutes</option>
+                            <option value="5minute">5 Minutes</option>
+                            <option value="10minute">10 Minutes</option>
+                            <option value="15minute" selected>15 Minutes</option>
+                            <option value="30minute">30 Minutes</option>
+                            <option value="60minute">1 Hour</option>
+                            <option value="day">1 Day</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Threshold (%)</label>
+                        <input
+                            type="number"
+                            id="thresholdPercent"
+                            value="75"
+                            min="0"
+                            max="100"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                        />
+                        <p class="text-xs text-gray-500 mt-1">Alert when body is above this %</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Check Frequency</label>
+                        <select
+                            id="checkFrequency"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                        >
+                            <option value="60">1 Minute</option>
+                            <option value="180">3 Minutes</option>
+                            <option value="300" selected>5 Minutes</option>
+                            <option value="600">10 Minutes</option>
+                            <option value="900">15 Minutes</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex gap-4">
+                    <button id="startMonitorBtn" class="btn-primary text-white font-semibold px-6 py-3 rounded-lg">
+                        Start Monitor
+                    </button>
+                    <button id="stopMonitorBtn" class="btn-secondary text-white font-semibold px-6 py-3 rounded-lg hidden">
+                        Stop Monitor
+                    </button>
+                    <button id="checkNowBtn" class="border-2 border-gray-300 text-gray-700 font-semibold px-6 py-3 rounded-lg hover:bg-gray-50">
+                        Check Now
+                    </button>
+                    <button id="testEmailBtn" class="border-2 border-[#FE4A03] text-[#FE4A03] font-semibold px-6 py-3 rounded-lg hover:bg-[#FE4A03] hover:text-white transition-colors">
+                        Test Email
+                    </button>
+                </div>
+            </div>
+
+            <!-- Activity Log -->
+            <div class="bg-white border-2 border-gray-200 rounded-xl p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">Activity Log</h2>
+                <div id="activityLog" class="space-y-2 max-h-96 overflow-y-auto">
+                    <div class="log-entry info">
+                        <span class="text-xs text-gray-500">Ready to start monitoring</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
-  </div>
 
-  <script>
-    // === State ===
-    let backendBase = "";
-    let userId = null;
 
-    function getBackendBase() {
-      const inputVal = document.getElementById("backendUrl").value.trim();
-      if (inputVal) backendBase = inputVal.replace(/\/+$/, "");
-      if (!backendBase) backendBase = "http://localhost:5000";
-      return backendBase;
-    }
-
-    function getHeaders() {
-      const headers = { "Content-Type": "application/json" };
-      if (userId) headers["X-User-ID"] = userId;
-      return headers;
-    }
-
-    function setSessionStatus(ok, text, userLabel) {
-      const chip = document.getElementById("sessionStatus");
-      const label = document.getElementById("userLabel");
-      chip.innerHTML = ok
-        ? '<span class="status-dot-ok"></span> Session active'
-        : '<span class="status-dot-bad"></span> No session';
-      label.textContent = userLabel || (ok ? "Connected" : "Not connected");
-    }
-
-    function pretty(obj) {
-      return JSON.stringify(obj, null, 2);
-    }
-
-    // === Navigation ===
-    const navButtons = document.querySelectorAll(".nav-btn");
-    const sections = document.querySelectorAll("section.section");
-    navButtons.forEach((btn) => {
-      btn.addEventListener("click", () => {
-        navButtons.forEach((b) => b.classList.remove("active"));
-        btn.classList.add("active");
-        const target = btn.getAttribute("data-section");
-        sections.forEach((s) => {
-          s.style.display =
-            s.id === "section-" + target ? "block" : "none";
-        });
-      });
-    });
-
-    // === Backend Health ===
-    document
-      .getElementById("healthCheckBtn")
-      .addEventListener("click", async () => {
-        const base = getBackendBase();
-        try {
-          const res = await fetch(base + "/health");
-          const data = await res.json();
-          setSessionStatus(true, "Backend OK", "Backend ✓");
-          alert("Health check OK: " + JSON.stringify(data));
-        } catch (e) {
-          setSessionStatus(false);
-          alert("Health check failed: " + e);
-        }
-      });
-
-    // === Generate Session ===
-    document
-      .getElementById("generateSessionBtn")
-      .addEventListener("click", async () => {
-        const base = getBackendBase();
-        const apiKey = document.getElementById("apiKey").value.trim();
-        const apiSecret = document.getElementById("apiSecret").value.trim();
-        const requestToken = document
-          .getElementById("requestToken")
-          .value.trim();
-        const out = document.getElementById("sessionOutput");
-
-        out.textContent = "Generating session…";
-
-        try {
-          const res = await fetch(base + "/api/generate-session", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ api_key: apiKey, api_secret: apiSecret, request_token: requestToken })
-          });
-          const data = await res.json();
-          out.textContent = pretty(data);
-
-          if (data.success && data.user_id) {
-            userId = data.user_id;
-            setSessionStatus(true, "Session OK", data.user_name || data.email || data.user_id);
-          } else {
-            setSessionStatus(false);
-          }
-        } catch (e) {
-          out.textContent = "Error: " + e;
-          setSessionStatus(false);
-        }
-      });
-
-    // === Quick Profile & Margins ===
-    document
-      .getElementById("loadProfileBtn")
-      .addEventListener("click", async () => {
-        const base = getBackendBase();
-        const out = document.getElementById("quickSnapshotOutput");
-        out.textContent = "Loading profile…";
-        try {
-          const res = await fetch(base + "/api/profile", {
-            headers: getHeaders(),
-          });
-          const data = await res.json();
-          out.textContent = pretty(data);
-        } catch (e) {
-          out.textContent = "Error: " + e;
-        }
-      });
-
-    document
-      .getElementById("loadMarginsBtn")
-      .addEventListener("click", async () => {
-        const base = getBackendBase();
-        const out = document.getElementById("quickSnapshotOutput");
-        out.textContent = "Loading margins…";
-        try {
-          const res = await fetch(base + "/api/margins", {
-            headers: getHeaders(),
-          });
-          const data = await res.json();
-          out.textContent = pretty(data);
-        } catch (e) {
-          out.textContent = "Error: " + e;
-        }
-      });
-
-    // === Account Snapshot ===
-    document
-      .getElementById("refreshPositionsBtn")
-      .addEventListener("click", async () => {
-        const base = getBackendBase();
-        const out = document.getElementById("positionsOutput");
-        out.textContent = "Loading positions…";
-        try {
-          const res = await fetch(base + "/api/positions", {
-            headers: getHeaders(),
-          });
-          const data = await res.json();
-          out.textContent = pretty(data);
-        } catch (e) {
-          out.textContent = "Error: " + e;
-        }
-      });
-
-    document
-      .getElementById("refreshHoldingsBtn")
-      .addEventListener("click", async () => {
-        const base = getBackendBase();
-        const out = document.getElementById("holdingsOrdersOutput");
-        out.textContent = "Loading holdings…";
-        try {
-          const res = await fetch(base + "/api/holdings", {
-            headers: getHeaders(),
-          });
-          const data = await res.json();
-          out.textContent = "HOLDINGS:\n" + pretty(data);
-        } catch (e) {
-          out.textContent = "Error: " + e;
-        }
-      });
-
-    document
-      .getElementById("refreshOrdersBtn")
-      .addEventListener("click", async () => {
-        const base = getBackendBase();
-        const out = document.getElementById("holdingsOrdersOutput");
-        out.textContent = "Loading orders…";
-        try {
-          const res = await fetch(base + "/api/orders", {
-            headers: getHeaders(),
-          });
-          const data = await res.json();
-          out.textContent = "ORDERS:\n" + pretty(data);
-        } catch (e) {
-          out.textContent = "Error: " + e;
-        }
-      });
-
-    // === Candle Check ===
-    document
-      .getElementById("checkCandleBtn")
-      .addEventListener("click", async () => {
-        const base = getBackendBase();
-        const out = document.getElementById("candleOutput");
-        const instrument = Number(
-          document.getElementById("candleInstrument").value
-        );
-        const interval = document.getElementById("candleInterval").value;
-        const threshold = Number(
-          document.getElementById("candleThreshold").value
-        );
-        out.textContent = "Checking candle…";
-
-        try {
-          const res = await fetch(base + "/api/check-candle", {
-            method: "POST",
-            headers: getHeaders(),
-            body: JSON.stringify({
-              instrument_token: instrument,
-              interval,
-              threshold,
-            }),
-          });
-          const data = await res.json();
-          out.textContent = pretty(data);
-        } catch (e) {
-          out.textContent = "Error: " + e;
-        }
-      });
-
-    // === Monitor ===
-    document
-      .getElementById("startMonitorBtn")
-      .addEventListener("click", async () => {
-        const base = getBackendBase();
-        const out = document.getElementById("monitorOutput");
-        const instrument = Number(
-          document.getElementById("monitorInstrument").value
-        );
-        const interval = document.getElementById("monitorInterval").value;
-        const threshold = Number(
-          document.getElementById("monitorThreshold").value
-        );
-        const frequency = Number(
-          document.getElementById("monitorFrequency").value
-        );
-
-        out.textContent = "Starting monitor…";
-
-        try {
-          const res = await fetch(base + "/api/start-monitor", {
-            method: "POST",
-            headers: getHeaders(),
-            body: JSON.stringify({
-              instrument_token: instrument,
-              interval,
-              threshold,
-              frequency,
-            }),
-          });
-          const data = await res.json();
-          out.textContent = pretty(data);
-        } catch (e) {
-          out.textContent = "Error: " + e;
-        }
-      });
-
-    document
-      .getElementById("stopMonitorBtn")
-      .addEventListener("click", async () => {
-        const base = getBackendBase();
-        const out = document.getElementById("monitorOutput");
-        out.textContent = "Stopping monitor…";
-        try {
-          const res = await fetch(base + "/api/stop-monitor", {
-            method: "POST",
-            headers: getHeaders(),
-          });
-          const data = await res.json();
-          out.textContent = pretty(data);
-        } catch (e) {
-          out.textContent = "Error: " + e;
-        }
-      });
-
-    // === Trailing Status ===
-    document
-      .getElementById("refreshTrailBtn")
-      .addEventListener("click", async () => {
-        const base = getBackendBase();
-        const posOut = document.getElementById("trailingPositionsOutput");
-        const logsUl = document.getElementById("trailingLogsList");
-
-        posOut.textContent = "Loading trailing status…";
-        logsUl.innerHTML = "";
-
-        try {
-          const res = await fetch(base + "/api/get-trail-status", {
-            headers: getHeaders(),
-          });
-          const data = await res.json();
-
-          if (!data.success) {
-            posOut.textContent = pretty(data);
-            return;
-          }
-
-          posOut.textContent = pretty(data.positions || {});
-
-          const logs = data.logs || [];
-          logs.forEach((entry) => {
-            const li = document.createElement("li");
-            const t = new Date(entry.time * 1000);
-            li.textContent =
-              "[" +
-              t.toLocaleTimeString() +
-              "] " +
-              (entry.msg || JSON.stringify(entry));
-            logsUl.appendChild(li);
-          });
-        } catch (e) {
-          posOut.textContent = "Error: " + e;
-        }
-      });
-
-    // === Spreads ===
-    document
-      .getElementById("getBullSpreadBtn")
-      .addEventListener("click", async () => {
-        const base = getBackendBase();
-        const out = document.getElementById("bullSpreadOutput");
-        const lower = Number(document.getElementById("bullLower").value);
-        const upper = Number(document.getElementById("bullUpper").value);
-        out.textContent = "Requesting bull spread…";
-
-        try {
-          const res = await fetch(base + "/api/get-bull-spread", {
-            method: "POST",
-            headers: getHeaders(),
-            body: JSON.stringify({
-              lower_premium: lower,
-              upper_premium: upper,
-            }),
-          });
-          const data = await res.json();
-          out.textContent = pretty(data);
-        } catch (e) {
-          out.textContent = "Error: " + e;
-        }
-      });
-
-    document
-      .getElementById("getBearSpreadBtn")
-      .addEventListener("click", async () => {
-        const base = getBackendBase();
-        const out = document.getElementById("bearSpreadOutput");
-        const lower = Number(document.getElementById("bearLower").value);
-        const upper = Number(document.getElementById("bearUpper").value);
-        out.textContent = "Requesting bear spread…";
-
-        try {
-          const res = await fetch(base + "/api/get-bear-spread", {
-            method: "POST",
-            headers: getHeaders(),
-            body: JSON.stringify({
-              lower_premium: lower,
-              upper_premium: upper,
-            }),
-          });
-          const data = await res.json();
-          out.textContent = pretty(data);
-        } catch (e) {
-          out.textContent = "Error: " + e;
-        }
-      });
-
-    // === Test Email ===
-    document
-      .getElementById("testEmailBtn")
-      .addEventListener("click", async () => {
-        const base = getBackendBase();
-        const out = document.getElementById("testEmailOutput");
-        out.textContent = "Sending test email…";
-
-        try {
-          const res = await fetch(base + "/api/test-email", {
-            method: "POST",
-            headers: getHeaders(),
-          });
-          const data = await res.json();
-          out.textContent = pretty(data);
-        } catch (e) {
-          out.textContent = "Error: " + e;
-        }
-      });
-
-    // === Logout ===
-    document
-      .getElementById("logoutBtn")
-      .addEventListener("click", async () => {
-        const base = getBackendBase();
-        const out = document.getElementById("logoutOutput");
-        out.textContent = "Logging out…";
-        try {
-          const res = await fetch(base + "/api/logout", {
-            method: "POST",
-            headers: getHeaders(),
-          });
-          const data = await res.json();
-          out.textContent = pretty(data);
-          userId = null;
-          setSessionStatus(false);
-        } catch (e) {
-          out.textContent = "Error: " + e;
-        }
-      });
-  </script>
+<script src="app.js"></script>
 </body>
 </html>
