@@ -311,6 +311,39 @@
             border-radius: 50%;
             animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
+
+        /* Autocomplete styles */
+        #symbolAutocomplete {
+            z-index: 1000;
+        }
+
+        .autocomplete-item {
+            transition: background-color 0.15s ease;
+        }
+
+        .autocomplete-item:last-child {
+            border-bottom: none;
+        }
+
+        .autocomplete-item.selected,
+        .autocomplete-item:hover {
+            background-color: #eff6ff !important;
+        }
+
+        /* Loading indicator for autocomplete */
+        .autocomplete-loading {
+            padding: 12px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 13px;
+        }
+
+        .autocomplete-no-results {
+            padding: 12px;
+            text-align: center;
+            color: #9ca3af;
+            font-size: 13px;
+        }
     </style>
 </head>
 <body class="min-h-screen bg-gray-50">
@@ -594,14 +627,16 @@
                 <h2 class="text-xl font-bold text-gray-900 mb-4">Order Entry</h2>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-                    <div>
+                    <div style="position: relative;">
                         <label class="block text-sm font-semibold text-gray-900 mb-2">Trading Symbol</label>
                         <input
                             type="text"
                             id="orderSymbol"
-                            placeholder="e.g., NIFTY25JAN26000CE"
+                            placeholder="Start typing... (e.g., RELIANCE, NIFTY)"
                             class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 mono text-sm"
+                            autocomplete="off"
                         />
+                        <!-- Autocomplete dropdown will be inserted here by JavaScript -->
                     </div>
 
                     <div>
