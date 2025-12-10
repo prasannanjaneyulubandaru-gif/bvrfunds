@@ -896,6 +896,9 @@ function deployStrategy(strategyType) {
     `;
 }
 
+// Continue to next message for Manage Positions and Chart Monitor...
+
+
 // ===========================================
 // MANAGE POSITIONS PAGE
 // ===========================================
