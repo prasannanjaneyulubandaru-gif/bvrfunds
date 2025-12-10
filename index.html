@@ -1752,34 +1752,42 @@ function showTrailSlConfig() {
             <p class="text-sm text-gray-600 mb-2">
                 Set trailing stop loss from average price (₹${avgPrice.toFixed(2)})
             </p>
-            <div class="flex gap-4 items-end">
-                <div class="flex-1">
-                    <label class="block text-sm font-semibold text-gray-900 mb-2">Trail Points</label>
-                    <input
-                        type="number"
-                        id="trailPoints"
-                        value="10"
-                        step="0.5"
-                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
-                    />
-                </div>
-                <button id="startTrailBtn" class="btn-success text-white font-semibold px-6 py-3 rounded-lg whitespace-nowrap">
-                    Start Trailing SL
+            <div class="mb-4">
+                <label class="block text-sm font-semibold text-gray-900 mb-2">Trail Points</label>
+                <input
+                    type="number"
+                    id="trailPoints"
+                    value="10"
+                    step="0.5"
+                    class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                />
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <button id="startTrailBtn" class="btn-success text-white font-semibold px-6 py-3 rounded-lg">
+                    🎯 Manual Trail
+                </button>
+                <button id="startAutoTrailBtn" class="btn-primary text-white font-semibold px-6 py-3 rounded-lg">
+                    🤖 Auto Trail
                 </button>
             </div>
         </div>
         <div class="p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
-            <strong>ℹ️ About Trailing Stop Loss:</strong>
-            <p class="mt-2">
-                The system will place a <strong>SL (Stop Loss Limit)</strong> order ${isLong ? 'below' : 'above'} your average price with a wide 5% limit buffer. This ensures the order executes reliably for F&O contracts while providing price protection.
+            <strong>ℹ️ Choose Trailing Mode:</strong>
+            <ul class="mt-2 space-y-1 ml-4">
+                <li><strong>Manual Trail:</strong> Place SL and use +/- buttons to adjust manually</li>
+                <li><strong>Auto Trail:</strong> Automatically moves SL in real-time as price moves in your favor (WebSocket)</li>
+            </ul>
+            <p class="mt-2 text-xs">
+                Both use SL (Stop Loss Limit) orders ${isLong ? 'below' : 'above'} your average price with a 5% limit buffer for F&O compatibility.
             </p>
         </div>
     `;
     
     configDiv.classList.remove('hidden');
     
-    // Add event listener for start button
+    // Add event listeners
     document.getElementById('startTrailBtn').addEventListener('click', startTrailing);
+    document.getElementById('startAutoTrailBtn').addEventListener('click', startAutoTrailing);
 }
 
 async function startTrailing() {
@@ -1836,7 +1844,7 @@ async function startTrailing() {
             
             messagesDiv.innerHTML = `
                 <div class="p-4 bg-green-50 border-2 border-green-200 rounded-lg">
-                    <div class="font-bold text-green-800 mb-2">✅ Trailing Stop Loss Activated</div>
+                    <div class="font-bold text-green-800 mb-2">✅ Manual Trailing Stop Loss Activated</div>
                     <div class="text-sm text-green-700">
                         <div>Order ID: ${data.order_id}</div>
                         <div>Order Type: SL (Stop Loss Limit)</div>
@@ -1845,7 +1853,7 @@ async function startTrailing() {
                         <div>Trail Points: ${trailPoints}</div>
                     </div>
                     <div class="mt-2 text-xs text-gray-600">
-                        💡 Using SL limit order with wide buffer for F&O compatibility
+                        💡 Use +/- buttons below to adjust manually
                     </div>
                 </div>
             `;
@@ -1854,6 +1862,195 @@ async function startTrailing() {
             showManualTrailControls(data.order_id, triggerPrice, limitPrice, trailPoints);
         } else {
             alert('Error placing SL order: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+async function startAutoTrailing() {
+    if (!state.selectedPosition) return;
+    
+    const trailPoints = parseFloat(document.getElementById('trailPoints').value);
+    const position = state.selectedPosition;
+    const isLong = position.quantity > 0;
+    const avgPrice = position.average_price;
+    
+    // Calculate initial trigger price
+    let triggerPrice = isLong ? avgPrice - trailPoints : avgPrice + trailPoints;
+    triggerPrice = Math.round(triggerPrice / 0.05) * 0.05;
+    
+    // Calculate limit price
+    let limitPrice;
+    if (isLong) {
+        limitPrice = triggerPrice - trailPoints;
+    } else {
+        limitPrice = triggerPrice + trailPoints;
+    }
+    limitPrice = Math.round(limitPrice / 0.05) * 0.05;
+    
+    try {
+        // First, place the initial SL order
+        const placeResponse = await fetch(`${CONFIG.backendUrl}/api/place-order`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-ID': state.userId
+            },
+            body: JSON.stringify({
+                variety: 'regular',
+                exchange: position.exchange,
+                tradingsymbol: position.tradingsymbol,
+                transaction_type: isLong ? 'SELL' : 'BUY',
+                quantity: Math.abs(position.quantity),
+                product: position.product,
+                order_type: 'SL',
+                trigger_price: triggerPrice,
+                price: limitPrice
+            })
+        });
+        
+        const placeData = await placeResponse.json();
+        
+        if (!placeData.success) {
+            alert('Error placing SL order: ' + placeData.error);
+            return;
+        }
+        
+        // Get instrument token
+        const instrumentToken = await getInstrumentToken(position.exchange, position.tradingsymbol);
+        
+        if (!instrumentToken) {
+            alert('Could not find instrument token');
+            return;
+        }
+        
+        // Start automated trailing
+        const trailResponse = await fetch(`${CONFIG.backendUrl}/api/start-auto-trail`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-ID': state.userId
+            },
+            body: JSON.stringify({
+                symbol: position.tradingsymbol,
+                exchange: position.exchange,
+                instrument_token: instrumentToken,
+                order_id: placeData.order_id,
+                trigger_price: triggerPrice,
+                limit_price: limitPrice,
+                trail_points: trailPoints,
+                exit_type: isLong ? 'SELL' : 'BUY',
+                quantity: Math.abs(position.quantity),
+                product: position.product,
+                variety: 'regular',
+                avg_price: avgPrice
+            })
+        });
+        
+        const trailData = await trailResponse.json();
+        
+        if (trailData.success) {
+            const messagesDiv = document.getElementById('positionMessages');
+            messagesDiv.innerHTML = `
+                <div class="p-4 bg-green-50 border-2 border-green-200 rounded-lg">
+                    <div class="font-bold text-green-800 mb-2">🤖 Automated Trailing Activated!</div>
+                    <div class="text-sm text-green-700">
+                        <div>Order ID: ${placeData.order_id}</div>
+                        <div>Initial Trigger: ₹${triggerPrice.toFixed(2)}</div>
+                        <div>Initial Limit: ₹${limitPrice.toFixed(2)}</div>
+                        <div>Trail Points: ${trailPoints}</div>
+                        <div class="mt-2 font-semibold">🔄 Real-time WebSocket trailing active</div>
+                    </div>
+                </div>
+            `;
+            
+            // Show stop button
+            showAutoTrailControls(trailData.position_key, triggerPrice, limitPrice);
+        } else {
+            alert('Error starting auto trail: ' + trailData.error);
+        }
+        
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+async function getInstrumentToken(exchange, tradingsymbol) {
+    // For now, return a placeholder - in production, you'd fetch from instruments API
+    // This is a simplified version
+    try {
+        const response = await fetch(`${CONFIG.backendUrl}/api/get-instrument-token`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-ID': state.userId
+            },
+            body: JSON.stringify({
+                exchange: exchange,
+                tradingsymbol: tradingsymbol
+            })
+        });
+        
+        const data = await response.json();
+        return data.success ? data.instrument_token : null;
+    } catch (error) {
+        console.error('Error getting instrument token:', error);
+        return null;
+    }
+}
+
+function showAutoTrailControls(positionKey, trigger, limit) {
+    const statusDiv = document.getElementById('trailStatus');
+    const contentDiv = document.getElementById('trailStatusContent');
+    
+    contentDiv.innerHTML = `
+        <div class="space-y-4">
+            <div class="p-4 bg-green-50 rounded-lg border-2 border-green-500">
+                <div class="font-bold text-green-800 mb-2 flex items-center gap-2">
+                    <div class="animate-pulse w-3 h-3 bg-green-600 rounded-full"></div>
+                    Real-Time Automated Trailing Active
+                </div>
+                <div class="text-sm text-green-700">
+                    <div>Trigger: ₹${trigger.toFixed(2)}</div>
+                    <div>Limit: ₹${limit.toFixed(2)}</div>
+                    <div class="mt-2 text-xs">System will automatically move SL as price moves in your favor</div>
+                </div>
+            </div>
+            <button onclick="stopAutoTrailing('${positionKey}')" class="w-full btn-danger text-white font-semibold px-6 py-3 rounded-lg">
+                ⏹️ Stop Auto Trail & Cancel SL
+            </button>
+        </div>
+    `;
+    
+    statusDiv.classList.remove('hidden');
+}
+
+async function stopAutoTrailing(positionKey) {
+    try {
+        const response = await fetch(`${CONFIG.backendUrl}/api/stop-auto-trail`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-ID': state.userId
+            },
+            body: JSON.stringify({
+                position_key: positionKey
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('trailStatus').classList.add('hidden');
+            const messagesDiv = document.getElementById('positionMessages');
+            messagesDiv.innerHTML = `
+                <div class="p-4 bg-yellow-50 border-2 border-yellow-200 rounded-lg">
+                    ⏹️ Automated trailing stopped. Don't forget to cancel the SL order manually if needed.
+                </div>
+            `;
+        } else {
+            alert('Error stopping auto trail: ' + data.error);
         }
     } catch (error) {
         alert('Error: ' + error.message);
@@ -2217,6 +2414,7 @@ async function checkCandleNow() {
 window.removeFromBasket = removeFromBasket;
 window.adjustTrigger = adjustTrigger;
 window.stopTrailing = stopTrailing;
+window.stopAutoTrailing = stopAutoTrailing;
     </script>
 </body>
 </html>
