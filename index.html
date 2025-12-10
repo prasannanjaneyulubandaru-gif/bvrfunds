@@ -1771,7 +1771,7 @@ function showTrailSlConfig() {
         <div class="p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
             <strong>ℹ️ About Trailing Stop Loss:</strong>
             <p class="mt-2">
-                The system will place a <strong>SL-M (Stop Loss Market)</strong> order ${isLong ? 'below' : 'above'} your average price with automatic market protection as per exchange guidelines. The order will trail as the market moves in your favor.
+                The system will place a <strong>SL (Stop Loss Limit)</strong> order ${isLong ? 'below' : 'above'} your average price with a wide 5% limit buffer. This ensures the order executes reliably for F&O contracts while providing price protection.
             </p>
         </div>
     `;
@@ -1794,8 +1794,21 @@ async function startTrailing() {
     let triggerPrice = isLong ? avgPrice - trailPoints : avgPrice + trailPoints;
     triggerPrice = Math.round(triggerPrice / 0.05) * 0.05; // Round to tick size
     
+    // Calculate limit price with 5% buffer from trigger (wide range for F&O)
+    // This gives enough room for order to execute before we flip to MARKET
+    const bufferPercent = 0.05; // 5% buffer
+    let limitPrice;
+    if (isLong) {
+        // LONG position - SELL order - limit price below trigger
+        limitPrice = triggerPrice * (1 - bufferPercent);
+    } else {
+        // SHORT position - BUY order - limit price above trigger
+        limitPrice = triggerPrice * (1 + bufferPercent);
+    }
+    limitPrice = Math.round(limitPrice / 0.05) * 0.05; // Round to tick size
+    
     try {
-        // Place SL-M order with market_protection = -1 (automatic)
+        // Place SL order (not SL-M) with trigger and limit price
         const response = await fetch(`${CONFIG.backendUrl}/api/place-order`, {
             method: 'POST',
             headers: {
@@ -1809,9 +1822,9 @@ async function startTrailing() {
                 transaction_type: isLong ? 'SELL' : 'BUY',
                 quantity: Math.abs(position.quantity),
                 product: position.product,
-                order_type: 'SL-M',
+                order_type: 'SL', // SL (Stop Loss Limit)
                 trigger_price: triggerPrice,
-                market_protection: -1 // Always use automatic market protection
+                price: limitPrice // Wide limit price for protection
             })
         });
         
@@ -1826,16 +1839,19 @@ async function startTrailing() {
                     <div class="font-bold text-green-800 mb-2">✅ Trailing Stop Loss Activated</div>
                     <div class="text-sm text-green-700">
                         <div>Order ID: ${data.order_id}</div>
-                        <div>Order Type: SL-M (Stop Loss Market)</div>
+                        <div>Order Type: SL (Stop Loss Limit)</div>
                         <div>Trigger Price: ₹${triggerPrice.toFixed(2)}</div>
-                        <div>Market Protection: Automatic (System Default)</div>
+                        <div>Limit Price: ₹${limitPrice.toFixed(2)} (5% buffer)</div>
                         <div>Trail Points: ${trailPoints}</div>
+                    </div>
+                    <div class="mt-2 text-xs text-gray-600">
+                        💡 Using SL limit order with wide buffer for F&O compatibility
                     </div>
                 </div>
             `;
             
             // Show manual adjustment controls
-            showManualTrailControls(data.order_id, triggerPrice, trailPoints);
+            showManualTrailControls(data.order_id, triggerPrice, limitPrice, trailPoints);
         } else {
             alert('Error placing SL order: ' + data.error);
         }
@@ -1844,15 +1860,21 @@ async function startTrailing() {
     }
 }
 
-function showManualTrailControls(orderId, currentTrigger, trailPoints) {
+function showManualTrailControls(orderId, currentTrigger, currentLimit, trailPoints) {
     const statusDiv = document.getElementById('trailStatus');
     const contentDiv = document.getElementById('trailStatusContent');
     
     contentDiv.innerHTML = `
         <div class="space-y-4">
-            <div class="p-4 bg-green-50 rounded-lg">
-                <div class="text-sm text-gray-600 mb-1">Current Trigger Price</div>
-                <div class="text-2xl font-bold text-green-600">₹<span id="currentTrigger">${currentTrigger.toFixed(2)}</span></div>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="p-4 bg-green-50 rounded-lg">
+                    <div class="text-sm text-gray-600 mb-1">Trigger Price</div>
+                    <div class="text-2xl font-bold text-green-600">₹<span id="currentTrigger">${currentTrigger.toFixed(2)}</span></div>
+                </div>
+                <div class="p-4 bg-blue-50 rounded-lg">
+                    <div class="text-sm text-gray-600 mb-1">Limit Price (5%)</div>
+                    <div class="text-xl font-bold text-blue-600">₹<span id="currentLimit">${currentLimit.toFixed(2)}</span></div>
+                </div>
             </div>
             <div>
                 <label class="block text-sm font-semibold text-gray-900 mb-2">Adjust Trigger</label>
@@ -1880,6 +1902,7 @@ function showManualTrailControls(orderId, currentTrigger, trailPoints) {
     statusDiv.classList.remove('hidden');
     statusDiv.dataset.orderId = orderId;
     statusDiv.dataset.currentTrigger = currentTrigger;
+    statusDiv.dataset.currentLimit = currentLimit;
 }
 
 async function adjustTrigger(points) {
@@ -1889,6 +1912,21 @@ async function adjustTrigger(points) {
     
     currentTrigger += points;
     currentTrigger = Math.round(currentTrigger / 0.05) * 0.05;
+    
+    // Recalculate limit price with 5% buffer
+    const position = state.selectedPosition;
+    const isLong = position.quantity > 0;
+    const bufferPercent = 0.05; // 5% buffer
+    
+    let limitPrice;
+    if (isLong) {
+        // LONG position - SELL order - limit below trigger
+        limitPrice = currentTrigger * (1 - bufferPercent);
+    } else {
+        // SHORT position - BUY order - limit above trigger
+        limitPrice = currentTrigger * (1 + bufferPercent);
+    }
+    limitPrice = Math.round(limitPrice / 0.05) * 0.05;
     
     try {
         const response = await fetch(`${CONFIG.backendUrl}/api/modify-order`, {
@@ -1901,9 +1939,9 @@ async function adjustTrigger(points) {
                 order_id: orderId,
                 variety: 'regular',
                 trigger_price: currentTrigger,
-                order_type: 'SL-M',
-                quantity: Math.abs(state.selectedPosition.quantity),
-                market_protection: -1 // Always use automatic market protection
+                price: limitPrice,
+                order_type: 'SL',
+                quantity: Math.abs(state.selectedPosition.quantity)
             })
         });
         
@@ -1912,13 +1950,15 @@ async function adjustTrigger(points) {
         if (data.success) {
             statusDiv.dataset.orderId = data.order_id;
             statusDiv.dataset.currentTrigger = currentTrigger;
+            statusDiv.dataset.currentLimit = limitPrice;
             document.getElementById('currentTrigger').textContent = currentTrigger.toFixed(2);
+            document.getElementById('currentLimit').textContent = limitPrice.toFixed(2);
             
             // Show success feedback
             const messagesDiv = document.getElementById('positionMessages');
             messagesDiv.innerHTML = `
                 <div class="p-3 bg-green-50 border-2 border-green-200 rounded-lg text-sm">
-                    ✅ Trigger adjusted to ₹${currentTrigger.toFixed(2)}
+                    ✅ Trigger adjusted to ₹${currentTrigger.toFixed(2)} (Limit: ₹${limitPrice.toFixed(2)})
                 </div>
             `;
         } else {
