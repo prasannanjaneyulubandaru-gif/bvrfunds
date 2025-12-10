@@ -272,6 +272,9 @@ function setupEventListeners() {
     
     // Chart Monitor page
     setupChartMonitorListeners();
+    
+    // Strike Selection Page
+    setupStrategiesListeners();
 }
 
 function handleCredentialsSubmit(e) {
