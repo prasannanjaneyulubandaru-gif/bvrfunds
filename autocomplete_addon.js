@@ -104,6 +104,11 @@ function setupSymbolAutocomplete() {
  */
 async function searchSymbols(query, exchange) {
     try {
+        // Show loading state
+        const container = document.getElementById('symbolAutocomplete');
+        container.innerHTML = '<div class="autocomplete-loading">🔍 Searching...</div>';
+        container.classList.remove('hidden');
+        
         const response = await fetch(`${CONFIG.backendUrl}/api/search-instruments?q=${encodeURIComponent(query)}&exchange=${exchange}&limit=20`, {
             headers: {
                 'X-User-ID': state.userId
@@ -112,15 +117,19 @@ async function searchSymbols(query, exchange) {
         
         const data = await response.json();
         
-        if (data.success && data.results) {
+        if (data.success && data.results && data.results.length > 0) {
             autocompleteResults = data.results;
             displayAutocompleteResults(data.results);
         } else {
-            hideAutocomplete();
+            // Show no results message
+            container.innerHTML = '<div class="autocomplete-no-results">No instruments found for "' + query + '"</div>';
+            setTimeout(() => hideAutocomplete(), 2000);
         }
     } catch (error) {
         console.error('Autocomplete error:', error);
-        hideAutocomplete();
+        const container = document.getElementById('symbolAutocomplete');
+        container.innerHTML = '<div class="autocomplete-no-results text-red-600">⚠️ Search failed. Please try again.</div>';
+        setTimeout(() => hideAutocomplete(), 2000);
     }
 }
 
