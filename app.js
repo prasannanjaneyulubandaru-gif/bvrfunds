@@ -341,6 +341,7 @@ function setupPlaceOrdersListeners() {
         buyBtn.classList.remove('bg-green-500', 'text-white');
         buyBtn.classList.add('bg-white', 'text-gray-700');
     });
+    setupSymbolAutocomplete();
     
     // Order type change - show/hide price fields
     document.getElementById('orderType').addEventListener('change', (e) => {
