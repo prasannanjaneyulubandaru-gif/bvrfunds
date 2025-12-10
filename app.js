@@ -7,6 +7,7 @@ const CONFIG = {
 };
 
 // State management
+// State management
 let state = {
     apiKey: '',
     apiSecret: '',
@@ -17,10 +18,12 @@ let state = {
     orderBasket: [],
     placedOrders: [],
     selectedPosition: null,
+    selectedStrategy: null,  // ADD THIS LINE
     monitorInterval: null,
     monitorRunning: false,
-    autoTrailInterval: null  // For polling auto trail status
+    autoTrailInterval: null
 };
+
 
 // Initialize
 window.addEventListener('load', () => {
@@ -266,6 +269,9 @@ function setupEventListeners() {
     
     // Place Orders page
     setupPlaceOrdersListeners();
+
+    
+    setupStrategiesListeners();  // ADD THIS LINE
     
     // Manage Positions page
     setupManagePositionsListeners();
@@ -712,6 +718,179 @@ function generateExecutionSummary(statuses) {
     html += '</div>';
     summaryDiv.innerHTML = html;
 }
+
+// ===========================================
+// STRATEGIES PAGE  <-- ADD THIS ENTIRE SECTION HERE
+// ===========================================
+
+function setupStrategiesListeners() {
+    document.getElementById('bullishSpreadBtn').addEventListener('click', selectBullishSpread);
+    document.getElementById('bearishSpreadBtn').addEventListener('click', selectBearishSpread);
+}
+
+async function selectBullishSpread() {
+    const lowerPremium = parseFloat(document.getElementById('bullLowerPremium').value);
+    const upperPremium = parseFloat(document.getElementById('bullUpperPremium').value);
+    
+    const statusDiv = document.getElementById('bullishStatus');
+    statusDiv.innerHTML = '<div class="p-4 bg-blue-50 rounded-lg">🔍 Searching for bullish spread...</div>';
+    
+    try {
+        const response = await fetch(`${CONFIG.backendUrl}/api/get-bull-spread`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-ID': state.userId
+            },
+            body: JSON.stringify({
+                lower_premium: lowerPremium,
+                upper_premium: upperPremium
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Store selected strategy
+            state.selectedStrategy = {
+                type: 'BULLISH',
+                future: data.future,
+                option: data.option
+            };
+            
+            // Display strategy details
+            statusDiv.innerHTML = `
+                <div class="p-6 bg-green-50 border-2 border-green-200 rounded-lg">
+                    <h3 class="font-bold text-green-800 mb-4 text-xl">
+                        🟢 BULLISH STRATEGY SELECTED — PRICE EXPECTED TO MOVE UP 📈
+                    </h3>
+                    <div class="space-y-3">
+                        <div class="p-4 bg-white rounded-lg">
+                            <div class="text-sm text-gray-600 mb-1">▶ FUTURES Symbol</div>
+                            <div class="font-bold text-lg mono text-gray-900">${data.future.symbol}</div>
+                            <div class="text-xs text-gray-500 mono">Token: ${data.future.token}</div>
+                        </div>
+                        <div class="p-4 bg-white rounded-lg">
+                            <div class="text-sm text-gray-600 mb-1">▶ OPTION Hedge Symbol (PUT)</div>
+                            <div class="font-bold text-lg mono text-gray-900">${data.option.symbol}</div>
+                            <div class="text-xs text-gray-500 mono">Token: ${data.option.token}</div>
+                        </div>
+                    </div>
+                    <button id="deployBullishBtn" class="mt-6 w-full btn-success text-white font-semibold px-6 py-3 rounded-lg">
+                        🚀 Deploy Strategy
+                    </button>
+                </div>
+            `;
+            
+            // Add event listener for deploy button
+            document.getElementById('deployBullishBtn').addEventListener('click', () => deployStrategy('BULLISH'));
+        } else {
+            statusDiv.innerHTML = `<div class="p-4 bg-red-50 border-2 border-red-200 rounded-lg text-red-700">❌ Error: ${data.error}</div>`;
+        }
+    } catch (error) {
+        statusDiv.innerHTML = `<div class="p-4 bg-red-50 border-2 border-red-200 rounded-lg text-red-700">❌ Error: ${error.message}</div>`;
+    }
+}
+
+async function selectBearishSpread() {
+    const lowerPremium = parseFloat(document.getElementById('bearLowerPremium').value);
+    const upperPremium = parseFloat(document.getElementById('bearUpperPremium').value);
+    
+    const statusDiv = document.getElementById('bearishStatus');
+    statusDiv.innerHTML = '<div class="p-4 bg-blue-50 rounded-lg">🔍 Searching for bearish spread...</div>';
+    
+    try {
+        const response = await fetch(`${CONFIG.backendUrl}/api/get-bear-spread`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-ID': state.userId
+            },
+            body: JSON.stringify({
+                lower_premium: lowerPremium,
+                upper_premium: upperPremium
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Store selected strategy
+            state.selectedStrategy = {
+                type: 'BEARISH',
+                future: data.future,
+                option: data.option
+            };
+            
+            // Display strategy details
+            statusDiv.innerHTML = `
+                <div class="p-6 bg-red-50 border-2 border-red-200 rounded-lg">
+                    <h3 class="font-bold text-red-800 mb-4 text-xl">
+                        🔴 BEARISH STRATEGY SELECTED — PRICE EXPECTED TO MOVE DOWN 📉
+                    </h3>
+                    <div class="space-y-3">
+                        <div class="p-4 bg-white rounded-lg">
+                            <div class="text-sm text-gray-600 mb-1">▶ FUTURES Symbol</div>
+                            <div class="font-bold text-lg mono text-gray-900">${data.future.symbol}</div>
+                            <div class="text-xs text-gray-500 mono">Token: ${data.future.token}</div>
+                        </div>
+                        <div class="p-4 bg-white rounded-lg">
+                            <div class="text-sm text-gray-600 mb-1">▶ OPTION Hedge Symbol (CALL)</div>
+                            <div class="font-bold text-lg mono text-gray-900">${data.option.symbol}</div>
+                            <div class="text-xs text-gray-500 mono">Token: ${data.option.token}</div>
+                        </div>
+                    </div>
+                    <button id="deployBearishBtn" class="mt-6 w-full btn-danger text-white font-semibold px-6 py-3 rounded-lg">
+                        🚀 Deploy Strategy
+                    </button>
+                </div>
+            `;
+            
+            // Add event listener for deploy button
+            document.getElementById('deployBearishBtn').addEventListener('click', () => deployStrategy('BEARISH'));
+        } else {
+            statusDiv.innerHTML = `<div class="p-4 bg-red-50 border-2 border-red-200 rounded-lg text-red-700">❌ Error: ${data.error}</div>`;
+        }
+    } catch (error) {
+        statusDiv.innerHTML = `<div class="p-4 bg-red-50 border-2 border-red-200 rounded-lg text-red-700">❌ Error: ${error.message}</div>`;
+    }
+}
+
+function deployStrategy(strategyType) {
+    if (!state.selectedStrategy) {
+        alert('No strategy selected!');
+        return;
+    }
+    
+    // Pre-populate the Place Orders page with strategy symbols
+    const strategy = state.selectedStrategy;
+    
+    // Navigate to Place Orders page
+    showPage('place-orders');
+    
+    // Pre-fill the order form with future
+    document.getElementById('orderSymbol').value = strategy.future.symbol;
+    document.getElementById('orderExchange').value = strategy.future.exchange;
+    
+    // Show a message about the strategy
+    const statusDiv = document.getElementById('orderStatusOutput');
+    const color = strategyType === 'BULLISH' ? 'green' : 'red';
+    const icon = strategyType === 'BULLISH' ? '📈' : '📉';
+    
+    statusDiv.innerHTML = `
+        <div class="p-4 bg-${color === 'green' ? 'green' : 'red'}-50 border-2 border-${color === 'green' ? 'green' : 'red'}-200 rounded-lg mb-4">
+            <h3 class="font-bold text-${color === 'green' ? 'green' : 'red'}-800 mb-2">
+                ${icon} ${strategyType} FUTURE SPREAD STRATEGY
+            </h3>
+            <div class="text-sm text-${color === 'green' ? 'green' : 'red'}-700">
+                <div><strong>Future:</strong> ${strategy.future.symbol}</div>
+                <div><strong>Option Hedge:</strong> ${strategy.option.symbol}</div>
+                <div class="mt-2 text-xs">💡 Add both symbols to your basket and configure quantities</div>
+            </div>
+        </div>
+    `;
+}
+
 
 // ===========================================
 // MANAGE POSITIONS PAGE
