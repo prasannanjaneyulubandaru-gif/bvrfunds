@@ -707,11 +707,15 @@ async function deployBasket() {
             
             showDeploymentStatus('success', successHTML);
             
-            // Auto-close modal after 3 seconds
-            setTimeout(() => {
-                strategyBasket = [];
-                closeDeploymentModal();
-            }, 3000);
+            // Clear basket after successful deployment
+            strategyBasket = [];
+            updateBasketDisplay();
+            
+            // Re-enable deploy button so user can deploy more
+            deployBtn.disabled = false;
+            deployBtn.innerHTML = originalHTML;
+            
+            console.log('✅ Deployment completed:', result.results);
             
         } else {
             throw new Error(result.error);
@@ -723,6 +727,8 @@ async function deployBasket() {
         // Re-enable button on error
         deployBtn.disabled = false;
         deployBtn.innerHTML = originalHTML;
+        
+        console.error('❌ Deployment error:', error);
     }
 }
 
@@ -736,12 +742,23 @@ function showDeploymentStatus(type, message) {
         marginResult.innerHTML = `
             <div class="p-4 bg-green-50 border-2 border-green-200 rounded-lg">
                 ${message}
+                <div class="flex gap-3 mt-4">
+                    <button onclick="clearDeploymentStatus()" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                        👍 Got It - Deploy More
+                    </button>
+                    <button onclick="closeDeploymentModal()" class="flex-1 border-2 border-green-600 text-green-600 hover:bg-green-50 font-semibold py-2 px-4 rounded-lg transition-colors">
+                        ✕ Close Window
+                    </button>
+                </div>
             </div>
         `;
     } else if (type === 'error') {
         marginResult.innerHTML = `
             <div class="p-4 bg-red-50 border-2 border-red-200 rounded-lg">
-                <p class="text-red-700 font-semibold">${message}</p>
+                <p class="text-red-700 font-semibold mb-3">${message}</p>
+                <button onclick="clearDeploymentStatus()" class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                    Try Again
+                </button>
             </div>
         `;
     }
@@ -750,6 +767,17 @@ function showDeploymentStatus(type, message) {
     
     // Scroll to result
     marginResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/**
+ * Clear deployment status and allow new deployment
+ */
+function clearDeploymentStatus() {
+    const marginResult = document.getElementById('marginCheckResult');
+    if (marginResult) {
+        marginResult.classList.add('hidden');
+        marginResult.innerHTML = '';
+    }
 }
 
 /**
@@ -780,3 +808,4 @@ window.clearBasket = clearBasket;
 window.checkBasketMargin = checkBasketMargin;
 window.deployBasket = deployBasket;
 window.showDeploymentStatus = showDeploymentStatus;
+window.clearDeploymentStatus = clearDeploymentStatus;
