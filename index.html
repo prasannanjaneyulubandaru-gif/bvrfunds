@@ -344,6 +344,11 @@
             color: #9ca3af;
             font-size: 13px;
         }
+        /* Deployment modal animations */
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
     </style>
 </head>
 <body class="min-h-screen bg-gray-50">
@@ -859,13 +864,23 @@
                             </div>
                         </div>
                         
-                        <!-- Action Button -->
-                        <button id="executeBullishBtn" class="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 rounded-lg transition-all flex items-center justify-center gap-2">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                            </svg>
-                            <span>Find Instruments</span>
-                        </button>
+                        <!-- Action Buttons -->
+                        <!-- Action Buttons -->
+                        <div id="bullishActionBtns">
+                            <button id="executeBullishBtn" class="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 rounded-lg transition-all flex items-center justify-center gap-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                </svg>
+                                <span>Find Instruments</span>
+                            </button>
+                            
+                            <button id="deployBullishBtn" class="hidden w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-all flex items-center justify-center gap-2 mt-3">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                </svg>
+                                <span>Deploy Strategy</span>
+                            </button>
+                        </div>
                         
                         <!-- Loading State -->
                         <div id="bullishLoading" class="hidden text-center py-8">
@@ -931,12 +946,22 @@
                         </div>
                         
                         <!-- Action Button -->
-                        <button id="executeBearishBtn" class="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3 rounded-lg transition-all flex items-center justify-center gap-2">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                            </svg>
-                            <span>Find Instruments</span>
-                        </button>
+                        <!-- Action Buttons -->
+                        <div id="bearishActionBtns">
+                            <button id="executeBearishBtn" class="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3 rounded-lg transition-all flex items-center justify-center gap-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                </svg>
+                                <span>Find Instruments</span>
+                            </button>
+                            
+                            <button id="deployBearishBtn" class="hidden w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-all flex items-center justify-center gap-2 mt-3">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                </svg>
+                                <span>Deploy Strategy</span>
+                            </button>
+                        </div>
                         
                         <!-- Loading State -->
                         <div id="bearishLoading" class="hidden text-center py-8">
@@ -1131,5 +1156,6 @@
     <!-- Load external JavaScript -->
     <script src="app.js"></script>
     <script src="autocomplete_addon.js"></script>
+    <script src="strategy_deployment.js"></script>
 </body>
 </html>
