@@ -1,5 +1,5 @@
 // =========================================================
-// ENHANCED STRATEGY DEPLOYMENT WITH BASKET SYSTEM
+// ENHANCED STRATEGY DEPLOYMENT WITH ORDER STATUS TRACKING
 // Replace the existing strategy_deployment.js with this version
 // =========================================================
 
@@ -11,6 +11,9 @@ let selectedStrategyData = {
 
 // Store basket orders
 let strategyBasket = [];
+
+// Store deployed order IDs for status tracking
+let deployedOrderIds = [];
 
 /**
  * Update executeBullishStrategy to show Deploy button after finding instruments
@@ -148,6 +151,7 @@ function openBullishDeployment() {
     
     // Clear basket when opening new deployment
     strategyBasket = [];
+    deployedOrderIds = [];
     showDeploymentModal('bullish', data);
 }
 
@@ -162,6 +166,7 @@ function openBearishDeployment() {
     }
     
     strategyBasket = [];
+    deployedOrderIds = [];
     showDeploymentModal('bearish', data);
 }
 
@@ -646,7 +651,31 @@ async function checkBasketMargin() {
 }
 
 /**
- * Deploy basket orders - NO CONFIRMATION POPUP
+ * Get status badge HTML
+ */
+function getStatusBadge(status) {
+    const statusConfig = {
+        'COMPLETE': { color: 'green', icon: '✅', text: 'COMPLETE' },
+        'OPEN': { color: 'blue', icon: '⏳', text: 'OPEN' },
+        'PENDING': { color: 'yellow', icon: '⏱️', text: 'PENDING' },
+        'TRIGGER PENDING': { color: 'orange', icon: '⏱️', text: 'TRIGGER PENDING' },
+        'CANCELLED': { color: 'gray', icon: '❌', text: 'CANCELLED' },
+        'REJECTED': { color: 'red', icon: '🚫', text: 'REJECTED' },
+        'FAILED': { color: 'red', icon: '❌', text: 'FAILED' },
+        'UNKNOWN': { color: 'gray', icon: '❓', text: 'UNKNOWN' }
+    };
+    
+    const config = statusConfig[status] || statusConfig['UNKNOWN'];
+    
+    return `
+        <span class="px-3 py-1 bg-${config.color}-100 text-${config.color}-700 text-xs font-bold rounded-full">
+            ${config.icon} ${config.text}
+        </span>
+    `;
+}
+
+/**
+ * Deploy basket orders with status tracking
  */
 async function deployBasket() {
     if (strategyBasket.length === 0) {
@@ -676,42 +705,189 @@ async function deployBasket() {
         const result = await response.json();
         
         if (result.success) {
-            let successCount = result.results.filter(r => r.success).length;
-            let failCount = result.results.filter(r => !r.success).length;
+            // Build detailed status display
+            let statusHTML = `
+                <div class="bg-gradient-to-br from-green-50 to-blue-50 p-6 rounded-xl border-2 border-green-200">
+                    <h4 class="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        Deployment Complete - Order Status
+                    </h4>
+                    
+                    <!-- Summary Stats -->
+                    <div class="grid grid-cols-3 gap-4 mb-6">
+                        <div class="bg-white rounded-lg p-4 border-2 border-gray-200 text-center">
+                            <div class="text-2xl font-bold text-gray-900">${result.total_orders}</div>
+                            <div class="text-sm text-gray-600">Total Orders</div>
+                        </div>
+                        <div class="bg-green-100 rounded-lg p-4 border-2 border-green-300 text-center">
+                            <div class="text-2xl font-bold text-green-700">${result.successful}</div>
+                            <div class="text-sm text-green-700">Successful</div>
+                        </div>
+                        <div class="bg-red-100 rounded-lg p-4 border-2 border-red-300 text-center">
+                            <div class="text-2xl font-bold text-red-700">${result.failed}</div>
+                            <div class="text-sm text-red-700">Failed</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Order Details -->
+                    <div class="space-y-3">
+            `;
             
-            // Build success message
-            let successHTML = `<h4 class="font-bold text-green-900 mb-3">✅ Deployment Complete!</h4>`;
-            successHTML += `<div class="mb-3"><span class="text-green-700 font-semibold">Success: ${successCount} orders</span>`;
-            if (failCount > 0) {
-                successHTML += ` <span class="text-red-700 font-semibold">| Failed: ${failCount} orders</span>`;
-            }
-            successHTML += `</div><div class="space-y-2">`;
-            
-            result.results.forEach(r => {
+            result.results.forEach((r, index) => {
                 if (r.success) {
-                    successHTML += `
-                        <div class="flex items-center justify-between p-2 bg-green-100 rounded text-sm">
-                            <span>✓ ${r.symbol}: ${r.lots} lots (${r.quantity} qty)</span>
-                            <span class="font-mono text-xs text-green-700">ID: ${r.order_id}</span>
+                    // Store order ID for potential status refresh
+                    deployedOrderIds.push(r.order_id);
+                    
+                    const statusBadge = getStatusBadge(r.status);
+                    
+                    statusHTML += `
+                        <div class="bg-white rounded-lg p-4 border-2 border-gray-200">
+                            <div class="flex items-start justify-between mb-2">
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <span class="font-mono font-bold text-lg">${r.symbol}</span>
+                                        ${statusBadge}
+                                    </div>
+                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                                        <div>
+                                            <span class="text-gray-600">Order ID:</span>
+                                            <span class="font-mono font-semibold ml-1">${r.order_id}</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-gray-600">Lots:</span>
+                                            <span class="font-semibold ml-1">${r.lots}</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-gray-600">Quantity:</span>
+                                            <span class="font-semibold ml-1">${r.quantity}</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-gray-600">Lot Size:</span>
+                                            <span class="font-semibold ml-1">${r.lot_size}</span>
+                                        </div>
+                    `;
+                    
+                    // Add execution details if available
+                    if (r.filled_quantity > 0) {
+                        statusHTML += `
+                                        <div>
+                                            <span class="text-gray-600">Filled:</span>
+                                            <span class="font-semibold text-green-700 ml-1">${r.filled_quantity}</span>
+                                        </div>
+                        `;
+                    }
+                    
+                    if (r.pending_quantity > 0) {
+                        statusHTML += `
+                                        <div>
+                                            <span class="text-gray-600">Pending:</span>
+                                            <span class="font-semibold text-orange-700 ml-1">${r.pending_quantity}</span>
+                                        </div>
+                        `;
+                    }
+                    
+                    if (r.average_price > 0) {
+                        statusHTML += `
+                                        <div>
+                                            <span class="text-gray-600">Avg Price:</span>
+                                            <span class="font-semibold ml-1">₹${r.average_price.toFixed(2)}</span>
+                                        </div>
+                        `;
+                    }
+                    
+                    statusHTML += `
+                                    </div>
+                    `;
+                    
+                    // Add status message if present
+                    if (r.status_message) {
+                        statusHTML += `
+                                    <div class="mt-2 text-xs text-gray-600 italic">
+                                        💬 ${r.status_message}
+                                    </div>
+                        `;
+                    }
+                    
+                    // Add timestamps if available
+                    if (r.order_timestamp) {
+                        statusHTML += `
+                                    <div class="mt-2 text-xs text-gray-500">
+                                        📅 Order Time: ${new Date(r.order_timestamp).toLocaleString('en-IN')}
+                                    </div>
+                        `;
+                    }
+                    
+                    statusHTML += `
+                                </div>
+                                <button onclick="refreshOrderStatus('${r.order_id}')" 
+                                        class="ml-2 p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                        title="Refresh Status">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
                     `;
                 } else {
-                    successHTML += `
-                        <div class="p-2 bg-red-100 rounded text-sm text-red-700">
-                            ✗ ${r.symbol}: ${r.error}
+                    // Failed order
+                    statusHTML += `
+                        <div class="bg-red-50 rounded-lg p-4 border-2 border-red-200">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="font-mono font-bold text-lg">${r.symbol}</span>
+                                ${getStatusBadge('FAILED')}
+                            </div>
+                            <div class="text-sm text-red-700">
+                                ❌ Error: ${r.error}
+                            </div>
                         </div>
                     `;
                 }
             });
-            successHTML += `</div>`;
             
-            showDeploymentStatus('success', successHTML);
+            statusHTML += `
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="flex gap-3 mt-6">
+                        <button onclick="refreshAllOrderStatuses()" 
+                                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                            Refresh All Statuses
+                        </button>
+                        <button onclick="printOrderStatuses()" 
+                                class="flex-1 border-2 border-purple-500 text-purple-600 hover:bg-purple-50 font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                            </svg>
+                            Print Status Report
+                        </button>
+                        <button onclick="clearDeploymentStatus()" 
+                                class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            Deploy More
+                        </button>
+                        <button onclick="closeDeploymentModal()" 
+                                class="flex-1 border-2 border-gray-400 text-gray-700 hover:bg-gray-100 font-semibold py-3 px-4 rounded-lg transition-colors">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            showDeploymentStatus('success', statusHTML);
             
             // Clear basket after successful deployment
             strategyBasket = [];
             updateBasketDisplay();
             
-            // Re-enable deploy button so user can deploy more
+            // Re-enable deploy button
             deployBtn.disabled = false;
             deployBtn.innerHTML = originalHTML;
             
@@ -733,25 +909,92 @@ async function deployBasket() {
 }
 
 /**
+ * Refresh status for a single order
+ */
+async function refreshOrderStatus(orderId) {
+    try {
+        const response = await fetch(`${CONFIG.backendUrl}/api/order-status/${orderId}`, {
+            method: 'GET',
+            headers: {
+                'X-User-ID': state.userId
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('Order status refreshed:', data);
+            alert(`Status: ${data.status}\nFilled: ${data.filled_quantity}/${data.quantity}\nAvg Price: ₹${data.average_price}`);
+        } else {
+            throw new Error(data.error);
+        }
+        
+    } catch (error) {
+        console.error('Error refreshing order status:', error);
+        alert('Failed to refresh order status');
+    }
+}
+
+/**
+ * Refresh all deployed order statuses
+ */
+async function refreshAllOrderStatuses() {
+    if (deployedOrderIds.length === 0) {
+        alert('No orders to refresh');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${CONFIG.backendUrl}/api/orders-status/batch`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-ID': state.userId
+            },
+            body: JSON.stringify({ order_ids: deployedOrderIds })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('All order statuses refreshed:', data.results);
+            
+            // Re-deploy basket with updated statuses (you can enhance this)
+            alert('Order statuses refreshed! Check console for details.');
+        } else {
+            throw new Error(data.error);
+        }
+        
+    } catch (error) {
+        console.error('Error refreshing statuses:', error);
+        alert('Failed to refresh order statuses');
+    }
+}
+
+/**
+ * Print order statuses to console
+ */
+function printOrderStatuses() {
+    console.log('========================================');
+    console.log('ORDER STATUS REPORT');
+    console.log('========================================');
+    console.log('Total Orders:', deployedOrderIds.length);
+    console.log('Order IDs:', deployedOrderIds);
+    console.log('========================================');
+    console.log('Use refreshAllOrderStatuses() to get latest status for all orders');
+    console.log('========================================');
+    
+    alert('Order status report printed to console. Press F12 to view.');
+}
+
+/**
  * Show deployment status inline (no popup)
  */
 function showDeploymentStatus(type, message) {
     const marginResult = document.getElementById('marginCheckResult');
     
     if (type === 'success') {
-        marginResult.innerHTML = `
-            <div class="p-4 bg-green-50 border-2 border-green-200 rounded-lg">
-                ${message}
-                <div class="flex gap-3 mt-4">
-                    <button onclick="clearDeploymentStatus()" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
-                        👍 Got It - Deploy More
-                    </button>
-                    <button onclick="closeDeploymentModal()" class="flex-1 border-2 border-green-600 text-green-600 hover:bg-green-50 font-semibold py-2 px-4 rounded-lg transition-colors">
-                        ✕ Close Window
-                    </button>
-                </div>
-            </div>
-        `;
+        marginResult.innerHTML = message;
     } else if (type === 'error') {
         marginResult.innerHTML = `
             <div class="p-4 bg-red-50 border-2 border-red-200 rounded-lg">
@@ -809,3 +1052,6 @@ window.checkBasketMargin = checkBasketMargin;
 window.deployBasket = deployBasket;
 window.showDeploymentStatus = showDeploymentStatus;
 window.clearDeploymentStatus = clearDeploymentStatus;
+window.refreshOrderStatus = refreshOrderStatus;
+window.refreshAllOrderStatuses = refreshAllOrderStatuses;
+window.printOrderStatuses = printOrderStatuses;
