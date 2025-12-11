@@ -1,6 +1,6 @@
 // =========================================================
-// ENHANCED STRATEGY DEPLOYMENT WITH ORDER STATUS TRACKING
-// Ultra-compact version - 40% smaller deployment modal
+// ENHANCED STRATEGY DEPLOYMENT WITH BASKET SYSTEM
+// Replace the existing strategy_deployment.js with this version
 // =========================================================
 
 // Store selected strategy data
@@ -11,9 +11,6 @@ let selectedStrategyData = {
 
 // Store basket orders
 let strategyBasket = [];
-
-// Store deployed order IDs for status tracking
-let deployedOrderIds = [];
 
 /**
  * Update executeBullishStrategy to show Deploy button after finding instruments
@@ -151,7 +148,6 @@ function openBullishDeployment() {
     
     // Clear basket when opening new deployment
     strategyBasket = [];
-    deployedOrderIds = [];
     showDeploymentModal('bullish', data);
 }
 
@@ -166,12 +162,11 @@ function openBearishDeployment() {
     }
     
     strategyBasket = [];
-    deployedOrderIds = [];
     showDeploymentModal('bearish', data);
 }
 
 /**
- * Show ULTRA-COMPACT deployment modal (40% smaller)
+ * Show deployment modal with order panels and basket
  */
 function showDeploymentModal(strategyType, data) {
     const modal = document.createElement('div');
@@ -186,135 +181,206 @@ function showDeploymentModal(strategyType, data) {
     const strategyColor = strategyType === 'bullish' ? 'green' : 'red';
     
     modal.innerHTML = `
-        <div class="bg-white rounded-xl max-w-4xl w-full max-h-[85vh] overflow-y-auto">
-            <!-- Ultra-Compact Header -->
-            <div class="bg-gradient-to-r from-${strategyColor}-50 to-${strategyColor}-100 p-3 border-b border-gray-200 sticky top-0 z-10">
+        <div class="bg-white rounded-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-${strategyColor}-50 to-${strategyColor}-100 p-6 border-b-2 border-gray-200 sticky top-0 z-10">
                 <div class="flex items-center justify-between">
-                    <h2 class="text-lg font-bold text-gray-900">🚀 ${strategyTitle}</h2>
+                    <h2 class="text-2xl font-bold text-gray-900">🚀 Deploy ${strategyTitle}</h2>
                     <button onclick="closeDeploymentModal()" class="text-gray-600 hover:text-gray-900 transition-colors">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                         </svg>
                     </button>
                 </div>
             </div>
             
-            <div class="p-4">
-                <!-- Ultra-Compact Order Panels -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3">
+            <div class="p-6">
+                <!-- Order Panels -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                     
-                    <!-- Future Order Panel - ULTRA COMPACT -->
-                    <div class="border border-blue-200 rounded-lg p-2 bg-blue-50">
-                        <h3 class="text-xs font-bold text-blue-900 mb-2 flex items-center gap-1">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <!-- Future Order Panel -->
+                    <div class="border-2 border-blue-200 rounded-xl p-4 bg-blue-50">
+                        <h3 class="text-lg font-bold text-blue-900 mb-4 flex items-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
                             </svg>
-                            Future
+                            Future Order
                         </h3>
                         
-                        <div class="space-y-2">
-                            <div class="bg-white rounded px-2 py-1 font-mono text-xs">${data.future.symbol}</div>
-                            
-                            <div class="bg-${futureTransactionType === 'BUY' ? 'green' : 'red'}-100 rounded px-2 py-1 text-xs font-bold text-${futureTransactionType === 'BUY' ? 'green' : 'red'}-700">
+                        <div class="mb-3">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Symbol</label>
+                            <div class="bg-white border-2 border-gray-300 rounded-lg px-3 py-2 font-mono text-sm">
+                                ${data.future.symbol}
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Transaction Type</label>
+                            <div class="bg-${futureTransactionType === 'BUY' ? 'green' : 'red'}-100 border-2 border-${futureTransactionType === 'BUY' ? 'green' : 'red'}-300 rounded-lg px-3 py-2 font-bold text-${futureTransactionType === 'BUY' ? 'green' : 'red'}-700">
                                 ${futureTransactionType}
                             </div>
-                            
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Lots</label>
                             <input type="number" id="futureLots" value="1" min="1" 
-                                   class="w-full px-2 py-1 border border-gray-300 rounded text-xs" placeholder="Lots">
-                            
-                            <select id="futureOrderType" class="w-full px-2 py-1 border border-gray-300 rounded text-xs">
+                                   class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500">
+                            <p class="text-xs text-gray-500 mt-1">Lot size will be auto-calculated</p>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Order Type</label>
+                            <select id="futureOrderType" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500">
                                 <option value="MARKET">MARKET</option>
                                 <option value="LIMIT">LIMIT</option>
                                 <option value="SL">SL</option>
                                 <option value="SL-M">SL-M</option>
                             </select>
-                            
-                            <div id="futurePriceFields" class="hidden space-y-1">
-                                <input type="number" id="futurePrice" step="0.05" placeholder="Price"
-                                       class="w-full px-2 py-1 border border-gray-300 rounded text-xs hidden" id="futureLimitPriceField">
-                                <input type="number" id="futureTriggerPrice" step="0.05" placeholder="Trigger"
-                                       class="w-full px-2 py-1 border border-gray-300 rounded text-xs hidden" id="futureTriggerPriceField">
+                        </div>
+                        
+                        <div id="futurePriceFields" class="hidden">
+                            <div id="futureLimitPriceField" class="mb-3 hidden">
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">Price</label>
+                                <input type="number" id="futurePrice" step="0.05" placeholder="0.00"
+                                       class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500">
                             </div>
-                            
-                            <select id="futureProduct" class="w-full px-2 py-1 border border-gray-300 rounded text-xs">
+                            <div id="futureTriggerPriceField" class="mb-3 hidden">
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">Trigger Price</label>
+                                <input type="number" id="futureTriggerPrice" step="0.05" placeholder="0.00"
+                                       class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Product</label>
+                            <select id="futureProduct" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500">
                                 <option value="MIS">MIS</option>
                                 <option value="NRML">NRML</option>
                                 <option value="CNC">CNC</option>
                             </select>
-                            
-                            <button onclick="addFutureToBasket('${strategyType}')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1 rounded text-xs">
-                                + Add
-                            </button>
                         </div>
+                        
+                        <!-- Add to Basket Button -->
+                        <button onclick="addFutureToBasket('${strategyType}')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                            </svg>
+                            Add Future to Basket
+                        </button>
                     </div>
                     
-                    <!-- Hedge Order Panel - ULTRA COMPACT -->
-                    <div class="border border-${strategyColor}-200 rounded-lg p-2 bg-${strategyColor}-50">
-                        <h3 class="text-xs font-bold text-${strategyColor}-900 mb-2 flex items-center gap-1">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <!-- Hedge Order Panel -->
+                    <div class="border-2 border-${strategyColor}-200 rounded-xl p-4 bg-${strategyColor}-50">
+                        <h3 class="text-lg font-bold text-${strategyColor}-900 mb-4 flex items-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
                             </svg>
-                            ${strategyType === 'bullish' ? 'PUT' : 'CALL'} Hedge
+                            Hedge Order (${strategyType === 'bullish' ? 'PUT' : 'CALL'})
                         </h3>
                         
-                        <div class="space-y-2">
-                            <div class="bg-white rounded px-2 py-1 font-mono text-xs">${data.hedge.symbol}</div>
-                            
-                            <div class="bg-green-100 rounded px-2 py-1 text-xs font-bold text-green-700">BUY</div>
-                            
+                        <div class="mb-3">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Symbol</label>
+                            <div class="bg-white border-2 border-gray-300 rounded-lg px-3 py-2 font-mono text-sm">
+                                ${data.hedge.symbol}
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Transaction Type</label>
+                            <div class="bg-green-100 border-2 border-green-300 rounded-lg px-3 py-2 font-bold text-green-700">
+                                BUY
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Lots</label>
                             <input type="number" id="hedgeLots" value="1" min="1" 
-                                   class="w-full px-2 py-1 border border-gray-300 rounded text-xs" placeholder="Lots">
-                            
-                            <select id="hedgeOrderType" class="w-full px-2 py-1 border border-gray-300 rounded text-xs">
+                                   class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-${strategyColor}-500">
+                            <p class="text-xs text-gray-500 mt-1">Lot size will be auto-calculated</p>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Order Type</label>
+                            <select id="hedgeOrderType" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-${strategyColor}-500">
                                 <option value="MARKET">MARKET</option>
                                 <option value="LIMIT">LIMIT</option>
                                 <option value="SL">SL</option>
                                 <option value="SL-M">SL-M</option>
                             </select>
-                            
-                            <div id="hedgePriceFields" class="hidden space-y-1">
-                                <input type="number" id="hedgePrice" step="0.05" placeholder="Price"
-                                       class="w-full px-2 py-1 border border-gray-300 rounded text-xs hidden" id="hedgeLimitPriceField">
-                                <input type="number" id="hedgeTriggerPrice" step="0.05" placeholder="Trigger"
-                                       class="w-full px-2 py-1 border border-gray-300 rounded text-xs hidden" id="hedgeTriggerPriceField">
+                        </div>
+                        
+                        <div id="hedgePriceFields" class="hidden">
+                            <div id="hedgeLimitPriceField" class="mb-3 hidden">
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">Price</label>
+                                <input type="number" id="hedgePrice" step="0.05" placeholder="0.00"
+                                       class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-${strategyColor}-500">
                             </div>
-                            
-                            <select id="hedgeProduct" class="w-full px-2 py-1 border border-gray-300 rounded text-xs">
+                            <div id="hedgeTriggerPriceField" class="mb-3 hidden">
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">Trigger Price</label>
+                                <input type="number" id="hedgeTriggerPrice" step="0.05" placeholder="0.00"
+                                       class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-${strategyColor}-500">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Product</label>
+                            <select id="hedgeProduct" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-${strategyColor}-500">
                                 <option value="MIS">MIS</option>
                                 <option value="NRML">NRML</option>
                                 <option value="CNC">CNC</option>
                             </select>
-                            
-                            <button onclick="addHedgeToBasket('${strategyType}')" class="w-full bg-${strategyColor}-600 hover:bg-${strategyColor}-700 text-white font-semibold py-1 rounded text-xs">
-                                + Add
+                        </div>
+                        
+                        <!-- Add to Basket Button -->
+                        <button onclick="addHedgeToBasket('${strategyType}')" class="w-full bg-${strategyColor}-600 hover:bg-${strategyColor}-700 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                            </svg>
+                            Add Hedge to Basket
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Order Basket Display -->
+                <div id="orderBasketDisplay" class="mb-6 hidden">
+                    <div class="bg-orange-50 border-2 border-orange-200 rounded-xl p-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-lg font-bold text-orange-900 flex items-center gap-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+                                </svg>
+                                Order Basket
+                                <span id="basketCount" class="bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">0</span>
+                            </h3>
+                            <button onclick="clearBasket()" class="text-red-600 hover:text-red-700 font-semibold text-sm flex items-center gap-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                                Clear All
                             </button>
                         </div>
-                    </div>
-                </div>
-                
-                <!-- Ultra-Compact Basket Display -->
-                <div id="orderBasketDisplay" class="mb-3 hidden">
-                    <div class="bg-orange-50 border border-orange-200 rounded-lg p-2">
-                        <div class="flex items-center justify-between mb-2">
-                            <h3 class="text-xs font-bold text-orange-900 flex items-center gap-1">
-                                📦 Basket <span id="basketCount" class="bg-orange-500 text-white text-xs px-1.5 rounded-full ml-1">0</span>
-                            </h3>
-                            <button onclick="clearBasket()" class="text-red-600 hover:text-red-700 text-xs font-semibold">Clear</button>
+                        <div id="basketItems" class="space-y-2">
+                            <!-- Basket items will be inserted here -->
                         </div>
-                        <div id="basketItems" class="space-y-1.5"></div>
                     </div>
                 </div>
                 
-                <!-- Margin Check Result - ULTRA COMPACT -->
-                <div id="marginCheckResult" class="mb-3 hidden"></div>
+                <!-- Margin Check Result -->
+                <div id="marginCheckResult" class="mb-6 hidden"></div>
                 
-                <!-- Ultra-Compact Action Buttons -->
-                <div class="flex gap-2">
-                    <button onclick="checkBasketMargin()" class="flex-1 border border-blue-500 text-blue-600 font-semibold py-2 rounded text-xs hover:bg-blue-50">
-                        💰 Check Margin
+                <!-- Action Buttons -->
+                <div class="flex gap-4">
+                    <button onclick="checkBasketMargin()" class="flex-1 border-2 border-blue-500 text-blue-600 font-semibold py-3 rounded-lg hover:bg-blue-50 transition-colors flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        Check Margin
                     </button>
-                    <button onclick="deployBasket()" class="flex-1 bg-${strategyColor}-600 hover:bg-${strategyColor}-700 text-white font-semibold py-2 rounded text-xs">
-                        ⚡ Deploy
+                    <button onclick="deployBasket()" class="flex-1 bg-${strategyColor}-600 hover:bg-${strategyColor}-700 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                        Deploy Orders
                     </button>
                 </div>
             </div>
@@ -332,6 +398,7 @@ function showDeploymentModal(strategyType, data) {
  */
 function setupOrderTypeDependencies(prefix) {
     const orderTypeSelect = document.getElementById(`${prefix}OrderType`);
+    const priceFields = document.getElementById(`${prefix}PriceFields`);
     const limitPriceField = document.getElementById(`${prefix}LimitPriceField`);
     const triggerPriceField = document.getElementById(`${prefix}TriggerPriceField`);
     
@@ -341,17 +408,21 @@ function setupOrderTypeDependencies(prefix) {
         const orderType = e.target.value;
         
         if (orderType === 'MARKET') {
-            if (limitPriceField) limitPriceField.classList.add('hidden');
-            if (triggerPriceField) triggerPriceField.classList.add('hidden');
+            priceFields.classList.add('hidden');
+            limitPriceField.classList.add('hidden');
+            triggerPriceField.classList.add('hidden');
         } else if (orderType === 'LIMIT') {
-            if (limitPriceField) limitPriceField.classList.remove('hidden');
-            if (triggerPriceField) triggerPriceField.classList.add('hidden');
+            priceFields.classList.remove('hidden');
+            limitPriceField.classList.remove('hidden');
+            triggerPriceField.classList.add('hidden');
         } else if (orderType === 'SL') {
-            if (limitPriceField) limitPriceField.classList.remove('hidden');
-            if (triggerPriceField) triggerPriceField.classList.remove('hidden');
+            priceFields.classList.remove('hidden');
+            limitPriceField.classList.remove('hidden');
+            triggerPriceField.classList.remove('hidden');
         } else if (orderType === 'SL-M') {
-            if (limitPriceField) limitPriceField.classList.add('hidden');
-            if (triggerPriceField) triggerPriceField.classList.remove('hidden');
+            priceFields.classList.remove('hidden');
+            limitPriceField.classList.add('hidden');
+            triggerPriceField.classList.remove('hidden');
         }
     });
 }
@@ -424,7 +495,7 @@ function addHedgeToBasket(strategyType) {
 }
 
 /**
- * Update basket display - ULTRA COMPACT
+ * Update basket display
  */
 function updateBasketDisplay() {
     const basketDisplay = document.getElementById('orderBasketDisplay');
@@ -441,22 +512,29 @@ function updateBasketDisplay() {
     
     basketItems.innerHTML = strategyBasket.map((order, index) => {
         const sideColor = order.transaction_type === 'BUY' ? 'green' : 'red';
+        const typeColor = order.type === 'future' ? 'blue' : 'purple';
         
         let priceInfo = '';
         if (order.price) priceInfo += ` @ ₹${order.price.toFixed(2)}`;
-        if (order.trigger_price) priceInfo += ` (T:₹${order.trigger_price.toFixed(2)})`;
+        if (order.trigger_price) priceInfo += ` (Trigger: ₹${order.trigger_price.toFixed(2)})`;
         
         return `
-            <div class="flex items-center justify-between p-1.5 bg-white rounded border border-gray-200 text-xs">
-                <div class="flex items-center gap-1 flex-wrap flex-1">
-                    <span class="font-mono font-semibold">${order.tradingsymbol}</span>
-                    <span class="px-1 bg-${sideColor}-100 text-${sideColor}-700 font-bold rounded">${order.transaction_type}</span>
-                    <span class="text-gray-600">${order.lots}L</span>
-                    <span class="px-1 bg-gray-100 text-gray-700 rounded">${order.order_type}</span>
-                    ${priceInfo ? `<span class="text-gray-600">${priceInfo}</span>` : ''}
+            <div class="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="px-2 py-1 bg-${typeColor}-100 text-${typeColor}-700 text-xs font-bold rounded">
+                        ${order.type.toUpperCase()}
+                    </span>
+                    <span class="font-mono text-sm font-semibold">${order.tradingsymbol}</span>
+                    <span class="px-2 py-1 bg-${sideColor}-100 text-${sideColor}-700 text-xs font-bold rounded">
+                        ${order.transaction_type}
+                    </span>
+                    <span class="text-sm text-gray-600">${order.lots} lots</span>
+                    <span class="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">${order.order_type}</span>
+                    <span class="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">${order.product}</span>
+                    ${priceInfo ? `<span class="text-xs text-gray-600">${priceInfo}</span>` : ''}
                 </div>
-                <button onclick="removeFromBasket(${index})" class="text-red-600 hover:text-red-700 ml-1">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <button onclick="removeFromBasket(${index})" class="text-red-600 hover:text-red-700 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
                 </button>
@@ -497,7 +575,7 @@ function clearBasket() {
 }
 
 /**
- * Check margin for basket - ULTRA COMPACT
+ * Check margin for basket
  */
 async function checkBasketMargin() {
     if (strategyBasket.length === 0) {
@@ -506,7 +584,7 @@ async function checkBasketMargin() {
     }
     
     const resultDiv = document.getElementById('marginCheckResult');
-    resultDiv.innerHTML = '<div class="text-center py-2"><div class="inline-block w-4 h-4 border-3 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div></div>';
+    resultDiv.innerHTML = '<div class="text-center py-4"><div class="inline-block w-6 h-6 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div></div>';
     resultDiv.classList.remove('hidden');
     
     try {
@@ -526,23 +604,29 @@ async function checkBasketMargin() {
             const color = sufficient ? 'green' : 'red';
             
             resultDiv.innerHTML = `
-                <div class="p-2 bg-${color}-50 border border-${color}-200 rounded-lg text-xs">
-                    <div class="grid grid-cols-3 gap-2 mb-2">
-                        <div class="bg-white rounded p-1.5 border border-${color}-200 text-center">
-                            <div class="font-bold text-sm">₹${(marginData.available_balance/1000).toFixed(1)}K</div>
-                            <div class="text-xs text-gray-600">Available</div>
+                <div class="p-4 bg-${color}-50 border-2 border-${color}-200 rounded-lg">
+                    <h4 class="font-bold text-${color}-900 mb-3 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        Margin Check Results
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-3">
+                        <div class="bg-white rounded-lg p-3 border border-${color}-200">
+                            <span class="text-gray-600 block mb-1">Available Balance</span>
+                            <span class="font-bold text-lg">₹${marginData.available_balance.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
                         </div>
-                        <div class="bg-white rounded p-1.5 border border-${color}-200 text-center">
-                            <div class="font-bold text-sm">₹${(marginData.total_required/1000).toFixed(1)}K</div>
-                            <div class="text-xs text-gray-600">Required</div>
+                        <div class="bg-white rounded-lg p-3 border border-${color}-200">
+                            <span class="text-gray-600 block mb-1">Required Margin</span>
+                            <span class="font-bold text-lg">₹${marginData.total_required.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
                         </div>
-                        <div class="bg-white rounded p-1.5 border border-${color}-200 text-center">
-                            <div class="font-bold text-sm">₹${((marginData.available_balance - marginData.total_required)/1000).toFixed(1)}K</div>
-                            <div class="text-xs text-gray-600">Remaining</div>
+                        <div class="bg-white rounded-lg p-3 border border-${color}-200">
+                            <span class="text-gray-600 block mb-1">Remaining</span>
+                            <span class="font-bold text-lg">₹${(marginData.available_balance - marginData.total_required).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
                         </div>
                     </div>
-                    <div class="font-bold text-${color}-700 text-center">
-                        ${sufficient ? '✅ Sufficient' : '⚠️ Insufficient'}
+                    <div class="font-bold text-${color}-700 text-center py-2">
+                        ${sufficient ? '✅ Sufficient funds available' : '⚠️ Insufficient funds - need ₹' + (marginData.total_required - marginData.available_balance).toLocaleString('en-IN', {minimumFractionDigits: 2}) + ' more'}
                     </div>
                 </div>
             `;
@@ -554,39 +638,15 @@ async function checkBasketMargin() {
         
     } catch (error) {
         resultDiv.innerHTML = `
-            <div class="p-2 bg-red-50 border border-red-200 rounded-lg text-xs">
-                <p class="text-red-700">❌ Error: ${error.message}</p>
+            <div class="p-4 bg-red-50 border-2 border-red-200 rounded-lg">
+                <p class="text-red-700">❌ Error checking margin: ${error.message}</p>
             </div>
         `;
     }
 }
 
 /**
- * Get status badge HTML
- */
-function getStatusBadge(status) {
-    const statusConfig = {
-        'COMPLETE': { color: 'green', icon: '✅', text: 'COMPLETE' },
-        'OPEN': { color: 'blue', icon: '⏳', text: 'OPEN' },
-        'PENDING': { color: 'yellow', icon: '⏱️', text: 'PENDING' },
-        'TRIGGER PENDING': { color: 'orange', icon: '⏱️', text: 'TRIGGER PENDING' },
-        'CANCELLED': { color: 'gray', icon: '❌', text: 'CANCELLED' },
-        'REJECTED': { color: 'red', icon: '🚫', text: 'REJECTED' },
-        'FAILED': { color: 'red', icon: '❌', text: 'FAILED' },
-        'UNKNOWN': { color: 'gray', icon: '❓', text: 'UNKNOWN' }
-    };
-    
-    const config = statusConfig[status] || statusConfig['UNKNOWN'];
-    
-    return `
-        <span class="px-1.5 py-0.5 bg-${config.color}-100 text-${config.color}-700 text-xs font-bold rounded-full">
-            ${config.icon} ${config.text}
-        </span>
-    `;
-}
-
-/**
- * Deploy basket orders with status tracking - ULTRA COMPACT
+ * Deploy basket orders - NO CONFIRMATION POPUP
  */
 async function deployBasket() {
     if (strategyBasket.length === 0) {
@@ -598,7 +658,10 @@ async function deployBasket() {
     const deployBtn = document.querySelector('button[onclick="deployBasket()"]');
     const originalHTML = deployBtn.innerHTML;
     deployBtn.disabled = true;
-    deployBtn.innerHTML = `<div class="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Deploying...`;
+    deployBtn.innerHTML = `
+        <div class="inline-block w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+        <span>Deploying...</span>
+    `;
     
     try {
         const response = await fetch(`${CONFIG.backendUrl}/api/strategy/deploy-basket`, {
@@ -613,100 +676,42 @@ async function deployBasket() {
         const result = await response.json();
         
         if (result.success) {
-            // Build ULTRA-COMPACT status display
-            let statusHTML = `
-                <div class="bg-gradient-to-br from-green-50 to-blue-50 p-2 rounded-lg border border-green-200">
-                    <h4 class="text-sm font-bold text-gray-900 mb-2 flex items-center gap-1">
-                        <svg class="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                        Order Status
-                    </h4>
-                    
-                    <!-- Ultra-Compact Summary -->
-                    <div class="grid grid-cols-3 gap-1.5 mb-2">
-                        <div class="bg-white rounded p-1 border border-gray-200 text-center">
-                            <div class="text-base font-bold">${result.total_orders}</div>
-                            <div class="text-xs text-gray-600">Total</div>
-                        </div>
-                        <div class="bg-green-100 rounded p-1 border border-green-300 text-center">
-                            <div class="text-base font-bold text-green-700">${result.successful}</div>
-                            <div class="text-xs text-green-700">Success</div>
-                        </div>
-                        <div class="bg-red-100 rounded p-1 border border-red-300 text-center">
-                            <div class="text-base font-bold text-red-700">${result.failed}</div>
-                            <div class="text-xs text-red-700">Failed</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Ultra-Compact Order Details -->
-                    <div class="space-y-1.5">
-            `;
+            let successCount = result.results.filter(r => r.success).length;
+            let failCount = result.results.filter(r => !r.success).length;
             
-            result.results.forEach((r, index) => {
+            // Build success message
+            let successHTML = `<h4 class="font-bold text-green-900 mb-3">✅ Deployment Complete!</h4>`;
+            successHTML += `<div class="mb-3"><span class="text-green-700 font-semibold">Success: ${successCount} orders</span>`;
+            if (failCount > 0) {
+                successHTML += ` <span class="text-red-700 font-semibold">| Failed: ${failCount} orders</span>`;
+            }
+            successHTML += `</div><div class="space-y-2">`;
+            
+            result.results.forEach(r => {
                 if (r.success) {
-                    deployedOrderIds.push(r.order_id);
-                    const statusBadge = getStatusBadge(r.status);
-                    
-                    statusHTML += `
-                        <div class="bg-white rounded p-1.5 border border-gray-200 text-xs">
-                            <div class="flex items-center justify-between mb-1">
-                                <span class="font-mono font-semibold">${r.symbol}</span>
-                                ${statusBadge}
-                            </div>
-                            <div class="grid grid-cols-2 gap-x-2 text-xs">
-                                <div><span class="text-gray-600">ID:</span> <span class="font-mono">${r.order_id}</span></div>
-                                <div><span class="text-gray-600">Qty:</span> ${r.quantity}</div>
+                    successHTML += `
+                        <div class="flex items-center justify-between p-2 bg-green-100 rounded text-sm">
+                            <span>✓ ${r.symbol}: ${r.lots} lots (${r.quantity} qty)</span>
+                            <span class="font-mono text-xs text-green-700">ID: ${r.order_id}</span>
+                        </div>
                     `;
-                    
-                    if (r.filled_quantity > 0) {
-                        statusHTML += `<div><span class="text-gray-600">Filled:</span> <span class="text-green-700 font-semibold">${r.filled_quantity}</span></div>`;
-                    }
-                    
-                    if (r.average_price > 0) {
-                        statusHTML += `<div><span class="text-gray-600">Price:</span> ₹${r.average_price.toFixed(2)}</div>`;
-                    }
-                    
-                    statusHTML += `</div></div>`;
                 } else {
-                    statusHTML += `
-                        <div class="bg-red-50 rounded p-1.5 border border-red-200 text-xs">
-                            <div class="flex items-center gap-1 mb-0.5">
-                                <span class="font-mono font-semibold">${r.symbol}</span>
-                                ${getStatusBadge('FAILED')}
-                            </div>
-                            <div class="text-red-700">❌ ${r.error}</div>
+                    successHTML += `
+                        <div class="p-2 bg-red-100 rounded text-sm text-red-700">
+                            ✗ ${r.symbol}: ${r.error}
                         </div>
                     `;
                 }
             });
+            successHTML += `</div>`;
             
-            statusHTML += `
-                    </div>
-                    
-                    <!-- Ultra-Compact Action Buttons -->
-                    <div class="flex gap-1.5 mt-2">
-                        <button onclick="refreshAllOrderStatuses()" 
-                                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 rounded text-xs">
-                            🔄 Refresh
-                        </button>
-                        <button onclick="clearDeploymentStatus()" 
-                                class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-1.5 rounded text-xs">
-                            + Deploy More
-                        </button>
-                        <button onclick="closeDeploymentModal()" 
-                                class="flex-1 border border-gray-400 text-gray-700 hover:bg-gray-100 font-semibold py-1.5 rounded text-xs">
-                            Close
-                        </button>
-                    </div>
-                </div>
-            `;
+            showDeploymentStatus('success', successHTML);
             
-            showDeploymentStatus('success', statusHTML);
-            
-            // Clear basket and re-enable button
+            // Clear basket after successful deployment
             strategyBasket = [];
             updateBasketDisplay();
+            
+            // Re-enable deploy button so user can deploy more
             deployBtn.disabled = false;
             deployBtn.innerHTML = originalHTML;
             
@@ -718,82 +723,40 @@ async function deployBasket() {
         
     } catch (error) {
         showDeploymentStatus('error', `Error deploying orders: ${error.message}`);
+        
+        // Re-enable button on error
         deployBtn.disabled = false;
         deployBtn.innerHTML = originalHTML;
+        
         console.error('❌ Deployment error:', error);
     }
 }
 
 /**
- * Refresh status for a single order
- */
-async function refreshOrderStatus(orderId) {
-    try {
-        const response = await fetch(`${CONFIG.backendUrl}/api/order-status/${orderId}`, {
-            method: 'GET',
-            headers: {
-                'X-User-ID': state.userId
-            }
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            console.log('Order status refreshed:', data);
-        } else {
-            throw new Error(data.error);
-        }
-        
-    } catch (error) {
-        console.error('Error refreshing order status:', error);
-    }
-}
-
-/**
- * Refresh all deployed order statuses
- */
-async function refreshAllOrderStatuses() {
-    if (deployedOrderIds.length === 0) {
-        console.log('No orders to refresh');
-        return;
-    }
-    
-    try {
-        const response = await fetch(`${CONFIG.backendUrl}/api/orders-status/batch`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-User-ID': state.userId
-            },
-            body: JSON.stringify({ order_ids: deployedOrderIds })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            console.log('All order statuses refreshed:', data.results);
-        } else {
-            throw new Error(data.error);
-        }
-        
-    } catch (error) {
-        console.error('Error refreshing statuses:', error);
-    }
-}
-
-/**
- * Show deployment status inline
+ * Show deployment status inline (no popup)
  */
 function showDeploymentStatus(type, message) {
     const marginResult = document.getElementById('marginCheckResult');
     
     if (type === 'success') {
-        marginResult.innerHTML = message;
+        marginResult.innerHTML = `
+            <div class="p-4 bg-green-50 border-2 border-green-200 rounded-lg">
+                ${message}
+                <div class="flex gap-3 mt-4">
+                    <button onclick="clearDeploymentStatus()" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                        👍 Got It - Deploy More
+                    </button>
+                    <button onclick="closeDeploymentModal()" class="flex-1 border-2 border-green-600 text-green-600 hover:bg-green-50 font-semibold py-2 px-4 rounded-lg transition-colors">
+                        ✕ Close Window
+                    </button>
+                </div>
+            </div>
+        `;
     } else if (type === 'error') {
         marginResult.innerHTML = `
-            <div class="p-2 bg-red-50 border border-red-200 rounded-lg text-xs">
-                <p class="text-red-700 font-semibold mb-2">${message}</p>
-                <button onclick="clearDeploymentStatus()" class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-1.5 rounded text-xs">
+            <div class="p-4 bg-red-50 border-2 border-red-200 rounded-lg">
+                <p class="text-red-700 font-semibold mb-3">${message}</p>
+                <button onclick="clearDeploymentStatus()" class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
                     Try Again
                 </button>
             </div>
@@ -801,11 +764,13 @@ function showDeploymentStatus(type, message) {
     }
     
     marginResult.classList.remove('hidden');
+    
+    // Scroll to result
     marginResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 /**
- * Clear deployment status
+ * Clear deployment status and allow new deployment
  */
 function clearDeploymentStatus() {
     const marginResult = document.getElementById('marginCheckResult');
@@ -826,7 +791,7 @@ function closeDeploymentModal() {
     }
 }
 
-// Setup function
+// Update setup function
 function setupStrategiesListeners() {
     document.getElementById('executeBullishBtn')?.addEventListener('click', executeBullishStrategy);
     document.getElementById('executeBearishBtn')?.addEventListener('click', executeBearishStrategy);
@@ -844,5 +809,3 @@ window.checkBasketMargin = checkBasketMargin;
 window.deployBasket = deployBasket;
 window.showDeploymentStatus = showDeploymentStatus;
 window.clearDeploymentStatus = clearDeploymentStatus;
-window.refreshOrderStatus = refreshOrderStatus;
-window.refreshAllOrderStatuses = refreshAllOrderStatuses;
