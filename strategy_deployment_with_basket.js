@@ -1,6 +1,6 @@
 // =========================================================
 // ENHANCED STRATEGY DEPLOYMENT WITH ORDER STATUS TRACKING
-// Fixed version - no popups, proper counts, no print button
+// Compact version - no print button, smaller UI
 // =========================================================
 
 // Store selected strategy data
@@ -668,14 +668,14 @@ function getStatusBadge(status) {
     const config = statusConfig[status] || statusConfig['UNKNOWN'];
     
     return `
-        <span class="px-3 py-1 bg-${config.color}-100 text-${config.color}-700 text-xs font-bold rounded-full">
+        <span class="px-2 py-1 bg-${config.color}-100 text-${config.color}-700 text-xs font-bold rounded-full">
             ${config.icon} ${config.text}
         </span>
     `;
 }
 
 /**
- * Deploy basket orders with status tracking
+ * Deploy basket orders with status tracking - COMPACT VERSION
  */
 async function deployBasket() {
     if (strategyBasket.length === 0) {
@@ -705,125 +705,69 @@ async function deployBasket() {
         const result = await response.json();
         
         if (result.success) {
-            // Build detailed status display with COMPACT styling
+            // Build COMPACT status display
             let statusHTML = `
-                <div class="bg-gradient-to-br from-green-50 to-blue-50 p-4 rounded-xl border-2 border-green-200">
-                    <h4 class="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
-                        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="bg-gradient-to-br from-green-50 to-blue-50 p-3 rounded-lg border-2 border-green-200">
+                    <h4 class="text-base font-bold text-gray-900 mb-2 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
-                        Deployment Complete - Order Status
+                        Order Status
                     </h4>
                     
-                    <!-- Summary Stats -->
-                    <div class="grid grid-cols-3 gap-3 mb-4">
-                        <div class="bg-white rounded-lg p-3 border-2 border-gray-200 text-center">
-                            <div class="text-xl font-bold text-gray-900">${result.total_orders || 0}</div>
-                            <div class="text-xs text-gray-600">Total Orders</div>
+                    <!-- Compact Summary Stats -->
+                    <div class="grid grid-cols-3 gap-2 mb-3">
+                        <div class="bg-white rounded p-2 border border-gray-200 text-center">
+                            <div class="text-lg font-bold text-gray-900">${result.total_orders}</div>
+                            <div class="text-xs text-gray-600">Total</div>
                         </div>
-                        <div class="bg-green-100 rounded-lg p-3 border-2 border-green-300 text-center">
-                            <div class="text-xl font-bold text-green-700">${result.successful || 0}</div>
-                            <div class="text-xs text-green-700">Successful</div>
+                        <div class="bg-green-100 rounded p-2 border border-green-300 text-center">
+                            <div class="text-lg font-bold text-green-700">${result.successful}</div>
+                            <div class="text-xs text-green-700">Success</div>
                         </div>
-                        <div class="bg-red-100 rounded-lg p-3 border-2 border-red-300 text-center">
-                            <div class="text-xl font-bold text-red-700">${result.failed || 0}</div>
+                        <div class="bg-red-100 rounded p-2 border border-red-300 text-center">
+                            <div class="text-lg font-bold text-red-700">${result.failed}</div>
                             <div class="text-xs text-red-700">Failed</div>
                         </div>
                     </div>
                     
-                    <!-- Order Details -->
+                    <!-- Compact Order Details -->
                     <div class="space-y-2">
             `;
             
             result.results.forEach((r, index) => {
                 if (r.success) {
-                    // Store order ID for potential status refresh
                     deployedOrderIds.push(r.order_id);
-                    
                     const statusBadge = getStatusBadge(r.status);
                     
                     statusHTML += `
-                        <div class="bg-white rounded-lg p-3 border-2 border-gray-200">
-                            <div class="flex items-start justify-between mb-2">
+                        <div class="bg-white rounded p-2 border border-gray-200">
+                            <div class="flex items-start justify-between">
                                 <div class="flex-1">
-                                    <div class="flex items-center gap-2 mb-2">
-                                        <span class="font-mono font-bold text-base">${r.symbol}</span>
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="font-mono font-semibold text-sm">${r.symbol}</span>
                                         ${statusBadge}
                                     </div>
-                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-                                        <div>
-                                            <span class="text-gray-600">Order ID:</span>
-                                            <span class="font-mono font-semibold ml-1">${r.order_id}</span>
-                                        </div>
-                                        <div>
-                                            <span class="text-gray-600">Lots:</span>
-                                            <span class="font-semibold ml-1">${r.lots}</span>
-                                        </div>
-                                        <div>
-                                            <span class="text-gray-600">Quantity:</span>
-                                            <span class="font-semibold ml-1">${r.quantity}</span>
-                                        </div>
-                                        <div>
-                                            <span class="text-gray-600">Lot Size:</span>
-                                            <span class="font-semibold ml-1">${r.lot_size}</span>
-                                        </div>
+                                    <div class="grid grid-cols-2 gap-1 text-xs">
+                                        <div><span class="text-gray-600">ID:</span> <span class="font-mono">${r.order_id}</span></div>
+                                        <div><span class="text-gray-600">Lots:</span> ${r.lots} (${r.quantity} qty)</div>
                     `;
                     
-                    // Add execution details if available
                     if (r.filled_quantity > 0) {
-                        statusHTML += `
-                                        <div>
-                                            <span class="text-gray-600">Filled:</span>
-                                            <span class="font-semibold text-green-700 ml-1">${r.filled_quantity}</span>
-                                        </div>
-                        `;
-                    }
-                    
-                    if (r.pending_quantity > 0) {
-                        statusHTML += `
-                                        <div>
-                                            <span class="text-gray-600">Pending:</span>
-                                            <span class="font-semibold text-orange-700 ml-1">${r.pending_quantity}</span>
-                                        </div>
-                        `;
+                        statusHTML += `<div><span class="text-gray-600">Filled:</span> <span class="text-green-700 font-semibold">${r.filled_quantity}</span></div>`;
                     }
                     
                     if (r.average_price > 0) {
-                        statusHTML += `
-                                        <div>
-                                            <span class="text-gray-600">Avg Price:</span>
-                                            <span class="font-semibold ml-1">₹${r.average_price.toFixed(2)}</span>
-                                        </div>
-                        `;
+                        statusHTML += `<div><span class="text-gray-600">Price:</span> ₹${r.average_price.toFixed(2)}</div>`;
                     }
                     
                     statusHTML += `
                                     </div>
-                    `;
-                    
-                    // Add status message if present
-                    if (r.status_message) {
-                        statusHTML += `
-                                    <div class="mt-2 text-xs text-gray-600 italic">
-                                        💬 ${r.status_message}
-                                    </div>
-                        `;
-                    }
-                    
-                    // Add timestamps if available
-                    if (r.order_timestamp) {
-                        statusHTML += `
-                                    <div class="mt-1 text-xs text-gray-500">
-                                        📅 ${new Date(r.order_timestamp).toLocaleString('en-IN')}
-                                    </div>
-                        `;
-                    }
-                    
-                    statusHTML += `
+                                    ${r.status_message ? `<div class="text-xs text-gray-600 mt-1 italic">${r.status_message}</div>` : ''}
                                 </div>
                                 <button onclick="refreshOrderStatus('${r.order_id}')" 
-                                        class="ml-2 p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                        title="Refresh Status">
+                                        class="ml-2 p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                        title="Refresh">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                                     </svg>
@@ -832,16 +776,13 @@ async function deployBasket() {
                         </div>
                     `;
                 } else {
-                    // Failed order
                     statusHTML += `
-                        <div class="bg-red-50 rounded-lg p-3 border-2 border-red-200">
+                        <div class="bg-red-50 rounded p-2 border border-red-200">
                             <div class="flex items-center gap-2 mb-1">
-                                <span class="font-mono font-bold text-base">${r.symbol}</span>
+                                <span class="font-mono font-semibold text-sm">${r.symbol}</span>
                                 ${getStatusBadge('FAILED')}
                             </div>
-                            <div class="text-xs text-red-700">
-                                ❌ Error: ${r.error}
-                            </div>
+                            <div class="text-xs text-red-700">❌ ${r.error}</div>
                         </div>
                     `;
                 }
@@ -850,24 +791,21 @@ async function deployBasket() {
             statusHTML += `
                     </div>
                     
-                    <!-- Action Buttons -->
-                    <div class="flex gap-2 mt-4">
+                    <!-- Compact Action Buttons -->
+                    <div class="flex gap-2 mt-3">
                         <button onclick="refreshAllOrderStatuses()" 
-                                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-2 rounded-lg transition-colors flex items-center justify-center gap-1 text-xs">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                             </svg>
-                            Refresh All
+                            Refresh
                         </button>
                         <button onclick="clearDeploymentStatus()" 
-                                class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                            </svg>
+                                class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-2 rounded-lg transition-colors text-xs">
                             Deploy More
                         </button>
                         <button onclick="closeDeploymentModal()" 
-                                class="flex-1 border-2 border-gray-400 text-gray-700 hover:bg-gray-100 font-semibold py-2 px-3 rounded-lg transition-colors text-sm">
+                                class="flex-1 border-2 border-gray-400 text-gray-700 hover:bg-gray-100 font-semibold py-2 px-2 rounded-lg transition-colors text-xs">
                             Close
                         </button>
                     </div>
@@ -876,25 +814,14 @@ async function deployBasket() {
             
             showDeploymentStatus('success', statusHTML);
             
-            // Clear basket after successful deployment
+            // Clear basket and re-enable button
             strategyBasket = [];
             updateBasketDisplay();
-            
-            // Re-enable deploy button
             deployBtn.disabled = false;
             deployBtn.innerHTML = originalHTML;
             
-            // Log to console (NO POPUP)
-            console.log('========================================');
-            console.log('✅ DEPLOYMENT COMPLETED');
-            console.log('========================================');
-            console.log('Total Orders:', result.total_orders);
-            console.log('Successful:', result.successful);
-            console.log('Failed:', result.failed);
-            console.log('Order IDs:', deployedOrderIds);
-            console.log('========================================');
-            console.log('Full Results:', result.results);
-            console.log('========================================');
+            // Silent console log
+            console.log('✅ Deployment completed:', result.results);
             
         } else {
             throw new Error(result.error);
@@ -902,17 +829,14 @@ async function deployBasket() {
         
     } catch (error) {
         showDeploymentStatus('error', `Error deploying orders: ${error.message}`);
-        
-        // Re-enable button on error
         deployBtn.disabled = false;
         deployBtn.innerHTML = originalHTML;
-        
         console.error('❌ Deployment error:', error);
     }
 }
 
 /**
- * Refresh status for a single order (NO POPUP)
+ * Refresh status for a single order
  */
 async function refreshOrderStatus(orderId) {
     try {
@@ -927,7 +851,6 @@ async function refreshOrderStatus(orderId) {
         
         if (data.success) {
             console.log('Order status refreshed:', data);
-            // Just log to console, no popup
         } else {
             throw new Error(data.error);
         }
@@ -938,7 +861,7 @@ async function refreshOrderStatus(orderId) {
 }
 
 /**
- * Refresh all deployed order statuses (NO POPUP)
+ * Refresh all deployed order statuses
  */
 async function refreshAllOrderStatuses() {
     if (deployedOrderIds.length === 0) {
@@ -960,7 +883,6 @@ async function refreshAllOrderStatuses() {
         
         if (data.success) {
             console.log('All order statuses refreshed:', data.results);
-            // Just log to console, no popup
         } else {
             throw new Error(data.error);
         }
@@ -971,7 +893,7 @@ async function refreshAllOrderStatuses() {
 }
 
 /**
- * Show deployment status inline (no popup)
+ * Show deployment status inline
  */
 function showDeploymentStatus(type, message) {
     const marginResult = document.getElementById('marginCheckResult');
@@ -990,13 +912,11 @@ function showDeploymentStatus(type, message) {
     }
     
     marginResult.classList.remove('hidden');
-    
-    // Scroll to result
     marginResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 /**
- * Clear deployment status and allow new deployment
+ * Clear deployment status
  */
 function clearDeploymentStatus() {
     const marginResult = document.getElementById('marginCheckResult');
@@ -1017,7 +937,7 @@ function closeDeploymentModal() {
     }
 }
 
-// Update setup function
+// Setup function
 function setupStrategiesListeners() {
     document.getElementById('executeBullishBtn')?.addEventListener('click', executeBullishStrategy);
     document.getElementById('executeBearishBtn')?.addEventListener('click', executeBearishStrategy);
