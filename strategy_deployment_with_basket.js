@@ -1,959 +1,1387 @@
-// =========================================================
-// ENHANCED STRATEGY DEPLOYMENT WITH ORDER STATUS TRACKING
-// Compact version - no print button, smaller UI
-// =========================================================
-
-// Store selected strategy data
-let selectedStrategyData = {
-    bullish: null,
-    bearish: null
-};
-
-// Store basket orders
-let strategyBasket = [];
-
-// Store deployed order IDs for status tracking
-let deployedOrderIds = [];
-
-/**
- * Update executeBullishStrategy to show Deploy button after finding instruments
- */
-async function executeBullishStrategy() {
-    const button = document.getElementById('executeBullishBtn');
-    const deployBtn = document.getElementById('deployBullishBtn');
-    const loading = document.getElementById('bullishLoading');
-    const results = document.getElementById('bullishResults');
-    
-    const lowerPremium = parseFloat(document.getElementById('lowerPremium').value);
-    const upperPremium = parseFloat(document.getElementById('upperPremium').value);
-    
-    if (lowerPremium >= upperPremium) {
-        alert('Lower premium must be less than upper premium');
-        return;
-    }
-    
-    button.classList.add('hidden');
-    loading.classList.remove('hidden');
-    results.classList.add('hidden');
-    if (deployBtn) deployBtn.classList.add('hidden');
-    
-    try {
-        const response = await fetch(`${CONFIG.backendUrl}/api/strategy/bullish-future-spread`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-User-ID': state.userId
-            },
-            body: JSON.stringify({
-                lower_premium: lowerPremium,
-                upper_premium: upperPremium
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            selectedStrategyData.bullish = data;
-            displayBullishResults(data);
-            
-            if (deployBtn) {
-                deployBtn.classList.remove('hidden');
-            }
-            
-            console.log('=== BULLISH FUTURE SPREAD ===');
-            console.log('Future:', data.future);
-            console.log('Hedge:', data.hedge);
-            console.log('============================');
-        } else {
-            throw new Error(data.error || 'Failed to execute strategy');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BVR Funds</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
         
-    } catch (error) {
-        console.error('Strategy error:', error);
-        alert('Error executing strategy: ' + error.message);
-    } finally {
-        button.classList.remove('hidden');
-        loading.classList.add('hidden');
-    }
-}
-
-/**
- * Update executeBearishStrategy similarly
- */
-async function executeBearishStrategy() {
-    const button = document.getElementById('executeBearishBtn');
-    const deployBtn = document.getElementById('deployBearishBtn');
-    const loading = document.getElementById('bearishLoading');
-    const results = document.getElementById('bearishResults');
-    
-    const lowerPremium = parseFloat(document.getElementById('lowerPremium').value);
-    const upperPremium = parseFloat(document.getElementById('upperPremium').value);
-    
-    if (lowerPremium >= upperPremium) {
-        alert('Lower premium must be less than upper premium');
-        return;
-    }
-    
-    button.classList.add('hidden');
-    loading.classList.remove('hidden');
-    results.classList.add('hidden');
-    if (deployBtn) deployBtn.classList.add('hidden');
-    
-    try {
-        const response = await fetch(`${CONFIG.backendUrl}/api/strategy/bearish-future-spread`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-User-ID': state.userId
-            },
-            body: JSON.stringify({
-                lower_premium: lowerPremium,
-                upper_premium: upperPremium
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            selectedStrategyData.bearish = data;
-            displayBearishResults(data);
-            
-            if (deployBtn) {
-                deployBtn.classList.remove('hidden');
-            }
-            
-            console.log('=== BEARISH FUTURE SPREAD ===');
-            console.log('Future:', data.future);
-            console.log('Hedge:', data.hedge);
-            console.log('=============================');
-        } else {
-            throw new Error(data.error || 'Failed to execute strategy');
+        body {
+            font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
         
-    } catch (error) {
-        console.error('Strategy error:', error);
-        alert('Error executing strategy: ' + error.message);
-    } finally {
-        button.classList.remove('hidden');
-        loading.classList.add('hidden');
-    }
-}
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .animate-slide-up {
+            animation: slideUp 0.6s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .animate-fade-in {
+            animation: fadeIn 0.4s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #FE4A03;
+        }
+        
+        .btn-primary {
+            background: #FE4A03;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-primary:hover {
+            background: #e04203;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(254, 74, 3, 0.3);
+        }
+        
+        .btn-primary:active {
+            transform: translateY(0);
+        }
 
-/**
- * Open deployment modal for Bullish strategy
- */
-function openBullishDeployment() {
-    const data = selectedStrategyData.bullish;
-    if (!data || !data.future || !data.hedge) {
-        alert('Please find instruments first');
-        return;
-    }
-    
-    // Clear basket when opening new deployment
-    strategyBasket = [];
-    deployedOrderIds = [];
-    showDeploymentModal('bullish', data);
-}
+        .btn-secondary {
+            background: #6b7280;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
 
-/**
- * Open deployment modal for Bearish strategy
- */
-function openBearishDeployment() {
-    const data = selectedStrategyData.bearish;
-    if (!data || !data.future || !data.hedge) {
-        alert('Please find instruments first');
-        return;
-    }
-    
-    strategyBasket = [];
-    deployedOrderIds = [];
-    showDeploymentModal('bearish', data);
-}
+        .btn-success {
+            background: #10b981;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-success:hover {
+            background: #059669;
+        }
 
-/**
- * Show deployment modal with order panels and basket
- */
-function showDeploymentModal(strategyType, data) {
-    const modal = document.createElement('div');
-    modal.id = 'deploymentModal';
-    modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
-    modal.style.animation = 'fadeIn 0.3s ease-out';
-    
-    const futureTransactionType = strategyType === 'bullish' ? 'BUY' : 'SELL';
-    const hedgeTransactionType = 'BUY';
-    
-    const strategyTitle = strategyType === 'bullish' ? 'Bullish Future Spread' : 'Bearish Future Spread';
-    const strategyColor = strategyType === 'bullish' ? 'green' : 'red';
-    
-    modal.innerHTML = `
-        <div class="bg-white rounded-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-            <!-- Header -->
-            <div class="bg-gradient-to-r from-${strategyColor}-50 to-${strategyColor}-100 p-6 border-b-2 border-gray-200 sticky top-0 z-10">
-                <div class="flex items-center justify-between">
-                    <h2 class="text-2xl font-bold text-gray-900">🚀 Deploy ${strategyTitle}</h2>
-                    <button onclick="closeDeploymentModal()" class="text-gray-600 hover:text-gray-900 transition-colors">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
+        .btn-danger {
+            background: #ef4444;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        
+        .feature-card {
+            transition: all 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .sidebar {
+            width: 260px;
+            min-height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            background: white;
+            border-right: 2px solid #e5e7eb;
+            padding-top: 80px;
+        }
+
+        .main-content {
+            margin-left: 260px;
+            padding-top: 80px;
+        }
+
+        .menu-item {
+            padding: 12px 24px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
+        }
+
+        .menu-item:hover {
+            background: #fef3f0;
+            border-left-color: #FE4A03;
+        }
+
+        .menu-item.active {
+            background: #fef3f0;
+            border-left-color: #FE4A03;
+            color: #FE4A03;
+            font-weight: 600;
+        }
+
+        .profile-dropdown {
+            position: relative;
+        }
+
+        .profile-menu {
+            position: absolute;
+            right: 0;
+            top: 100%;
+            margin-top: 0.5rem;
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            min-width: 280px;
+            z-index: 50;
+        }
+
+        .monitor-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .monitor-status.active {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .monitor-status.inactive {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .pulse {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .log-entry {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .log-entry.info {
+            background: #f0f9ff;
+            color: #0c4a6e;
+            border-left: 3px solid #0ea5e9;
+        }
+
+        .log-entry.success {
+            background: #f0fdf4;
+            color: #166534;
+            border-left: 3px solid #22c55e;
+        }
+
+        .log-entry.warning {
+            background: #fffbeb;
+            color: #92400e;
+            border-left: 3px solid #f59e0b;
+        }
+
+        .log-entry.error {
+            background: #fef2f2;
+            color: #991b1b;
+            border-left: 3px solid #ef4444;
+        }
+
+        .order-basket-item {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .order-basket-item:hover {
+            border-color: #FE4A03;
+            box-shadow: 0 2px 8px rgba(254, 74, 3, 0.1);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            margin: 0 4px;
+        }
+
+        .badge-buy {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .badge-sell {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .badge-info {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        .position-card {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .position-card:hover {
+            border-color: #FE4A03;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .position-card.selected {
+            border-color: #FE4A03;
+            background: #fef3f0;
+        }
+
+        .position-card.trailing-active {
+            border-left: 4px solid #10b981;
+        }
+
+        .trailing-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            background: #dcfce7;
+            color: #166534;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .trailing-indicator .pulse-dot {
+            width: 6px;
+            height: 6px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        /* Autocomplete styles */
+        #symbolAutocomplete {
+            z-index: 1000;
+        }
+
+        .autocomplete-item {
+            transition: background-color 0.15s ease;
+        }
+
+        .autocomplete-item:last-child {
+            border-bottom: none;
+        }
+
+        .autocomplete-item.selected,
+        .autocomplete-item:hover {
+            background-color: #eff6ff !important;
+        }
+
+        /* Loading indicator for autocomplete */
+        .autocomplete-loading {
+            padding: 12px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 13px;
+        }
+
+        .autocomplete-no-results {
+            padding: 12px;
+            text-align: center;
+            color: #9ca3af;
+            font-size: 13px;
+        }
+        /* Deployment modal animations */
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-50">
+    <!-- Navigation Bar -->
+    <nav class="border-b border-gray-200 bg-white fixed top-0 left-0 right-0 z-50">
+        <div class="px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-[#FE4A03] rounded-sm flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                    </svg>
                 </div>
+                <span class="text-xl font-bold text-gray-900">BVR Funds</span>
             </div>
             
-            <div class="p-6">
-                <!-- Order Panels -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                    
-                    <!-- Future Order Panel -->
-                    <div class="border-2 border-blue-200 rounded-xl p-4 bg-blue-50">
-                        <h3 class="text-lg font-bold text-blue-900 mb-4 flex items-center gap-2">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
-                            </svg>
-                            Future Order
-                        </h3>
-                        
-                        <div class="mb-3">
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">Symbol</label>
-                            <div class="bg-white border-2 border-gray-300 rounded-lg px-3 py-2 font-mono text-sm">
-                                ${data.future.symbol}
+            <!-- Profile Dropdown -->
+            <div id="profileSection" class="hidden profile-dropdown">
+                <button id="profileBtn" class="flex items-center gap-3 hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors">
+                    <div class="text-right">
+                        <div id="profileName" class="text-sm font-semibold text-gray-900">Loading...</div>
+                        <div id="profileEmail" class="text-xs text-gray-500">Loading...</div>
+                    </div>
+                    <div class="w-10 h-10 bg-[#FE4A03] rounded-full flex items-center justify-center">
+                        <span id="profileInitials" class="text-white font-bold text-sm">?</span>
+                    </div>
+                    <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                
+                <!-- Dropdown Menu -->
+                <div id="profileMenu" class="profile-menu hidden">
+                    <div class="p-4 border-b border-gray-200">
+                        <div class="font-semibold text-gray-900 mb-1" id="menuUserName">User Name</div>
+                        <div class="text-sm text-gray-600 mono" id="menuUserId">USER123</div>
+                        <div class="text-xs text-gray-500 mt-1" id="menuEmail">user@example.com</div>
+                    </div>
+                    <div class="p-3">
+                        <div class="px-3 py-2 text-xs text-gray-500 font-semibold uppercase">Account Details</div>
+                        <div class="px-3 py-2 text-sm">
+                            <div class="flex justify-between mb-2">
+                                <span class="text-gray-600">User Type:</span>
+                                <span class="font-semibold text-gray-900" id="menuUserType">-</span>
                             </div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">Transaction Type</label>
-                            <div class="bg-${futureTransactionType === 'BUY' ? 'green' : 'red'}-100 border-2 border-${futureTransactionType === 'BUY' ? 'green' : 'red'}-300 rounded-lg px-3 py-2 font-bold text-${futureTransactionType === 'BUY' ? 'green' : 'red'}-700">
-                                ${futureTransactionType}
+                            <div class="flex justify-between mb-2">
+                                <span class="text-gray-600">Broker:</span>
+                                <span class="font-semibold text-gray-900" id="menuBroker">-</span>
                             </div>
+                            <div class="text-gray-600 mb-1">Products:</div>
+                            <div id="menuProducts" class="flex flex-wrap gap-1"></div>
                         </div>
-                        
-                        <div class="mb-3">
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">Lots</label>
-                            <input type="number" id="futureLots" value="1" min="1" 
-                                   class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500">
-                            <p class="text-xs text-gray-500 mt-1">Lot size will be auto-calculated</p>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">Order Type</label>
-                            <select id="futureOrderType" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500">
-                                <option value="MARKET">MARKET</option>
-                                <option value="LIMIT">LIMIT</option>
-                                <option value="SL">SL</option>
-                                <option value="SL-M">SL-M</option>
-                            </select>
-                        </div>
-                        
-                        <div id="futurePriceFields" class="hidden">
-                            <div id="futureLimitPriceField" class="mb-3 hidden">
-                                <label class="block text-sm font-semibold text-gray-700 mb-1">Price</label>
-                                <input type="number" id="futurePrice" step="0.05" placeholder="0.00"
-                                       class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500">
-                            </div>
-                            <div id="futureTriggerPriceField" class="mb-3 hidden">
-                                <label class="block text-sm font-semibold text-gray-700 mb-1">Trigger Price</label>
-                                <input type="number" id="futureTriggerPrice" step="0.05" placeholder="0.00"
-                                       class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500">
-                            </div>
-                        </div>
-                        
-                        <div class="mb-4">
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">Product</label>
-                            <select id="futureProduct" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500">
-                                <option value="MIS">MIS</option>
-                                <option value="NRML">NRML</option>
-                                <option value="CNC">CNC</option>
-                            </select>
-                        </div>
-                        
-                        <!-- Add to Basket Button -->
-                        <button onclick="addFutureToBasket('${strategyType}')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                            </svg>
-                            Add Future to Basket
+                    </div>
+                    <div class="p-3 border-t border-gray-200">
+                        <button id="logoutBtn" class="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                            Logout
                         </button>
                     </div>
-                    
-                    <!-- Hedge Order Panel -->
-                    <div class="border-2 border-${strategyColor}-200 rounded-xl p-4 bg-${strategyColor}-50">
-                        <h3 class="text-lg font-bold text-${strategyColor}-900 mb-4 flex items-center gap-2">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-                            </svg>
-                            Hedge Order (${strategyType === 'bullish' ? 'PUT' : 'CALL'})
-                        </h3>
-                        
-                        <div class="mb-3">
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">Symbol</label>
-                            <div class="bg-white border-2 border-gray-300 rounded-lg px-3 py-2 font-mono text-sm">
-                                ${data.hedge.symbol}
-                            </div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">Transaction Type</label>
-                            <div class="bg-green-100 border-2 border-green-300 rounded-lg px-3 py-2 font-bold text-green-700">
-                                BUY
-                            </div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">Lots</label>
-                            <input type="number" id="hedgeLots" value="1" min="1" 
-                                   class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-${strategyColor}-500">
-                            <p class="text-xs text-gray-500 mt-1">Lot size will be auto-calculated</p>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">Order Type</label>
-                            <select id="hedgeOrderType" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-${strategyColor}-500">
-                                <option value="MARKET">MARKET</option>
-                                <option value="LIMIT">LIMIT</option>
-                                <option value="SL">SL</option>
-                                <option value="SL-M">SL-M</option>
-                            </select>
-                        </div>
-                        
-                        <div id="hedgePriceFields" class="hidden">
-                            <div id="hedgeLimitPriceField" class="mb-3 hidden">
-                                <label class="block text-sm font-semibold text-gray-700 mb-1">Price</label>
-                                <input type="number" id="hedgePrice" step="0.05" placeholder="0.00"
-                                       class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-${strategyColor}-500">
-                            </div>
-                            <div id="hedgeTriggerPriceField" class="mb-3 hidden">
-                                <label class="block text-sm font-semibold text-gray-700 mb-1">Trigger Price</label>
-                                <input type="number" id="hedgeTriggerPrice" step="0.05" placeholder="0.00"
-                                       class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-${strategyColor}-500">
-                            </div>
-                        </div>
-                        
-                        <div class="mb-4">
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">Product</label>
-                            <select id="hedgeProduct" class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-${strategyColor}-500">
-                                <option value="MIS">MIS</option>
-                                <option value="NRML">NRML</option>
-                                <option value="CNC">CNC</option>
-                            </select>
-                        </div>
-                        
-                        <!-- Add to Basket Button -->
-                        <button onclick="addHedgeToBasket('${strategyType}')" class="w-full bg-${strategyColor}-600 hover:bg-${strategyColor}-700 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                            </svg>
-                            Add Hedge to Basket
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- Order Basket Display -->
-                <div id="orderBasketDisplay" class="mb-6 hidden">
-                    <div class="bg-orange-50 border-2 border-orange-200 rounded-xl p-4">
-                        <div class="flex items-center justify-between mb-3">
-                            <h3 class="text-lg font-bold text-orange-900 flex items-center gap-2">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
-                                </svg>
-                                Order Basket
-                                <span id="basketCount" class="bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">0</span>
-                            </h3>
-                            <button onclick="clearBasket()" class="text-red-600 hover:text-red-700 font-semibold text-sm flex items-center gap-1">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                                </svg>
-                                Clear All
-                            </button>
-                        </div>
-                        <div id="basketItems" class="space-y-2">
-                            <!-- Basket items will be inserted here -->
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Margin Check Result -->
-                <div id="marginCheckResult" class="mb-6 hidden"></div>
-                
-                <!-- Action Buttons -->
-                <div class="flex gap-4">
-                    <button onclick="checkBasketMargin()" class="flex-1 border-2 border-blue-500 text-blue-600 font-semibold py-3 rounded-lg hover:bg-blue-50 transition-colors flex items-center justify-center gap-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                        Check Margin
-                    </button>
-                    <button onclick="deployBasket()" class="flex-1 bg-${strategyColor}-600 hover:bg-${strategyColor}-700 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                        </svg>
-                        Deploy Orders
-                    </button>
                 </div>
             </div>
         </div>
-    `;
-    
-    document.body.appendChild(modal);
-    
-    setupOrderTypeDependencies('future');
-    setupOrderTypeDependencies('hedge');
-}
+    </nav>
 
-/**
- * Setup order type dependencies
- */
-function setupOrderTypeDependencies(prefix) {
-    const orderTypeSelect = document.getElementById(`${prefix}OrderType`);
-    const priceFields = document.getElementById(`${prefix}PriceFields`);
-    const limitPriceField = document.getElementById(`${prefix}LimitPriceField`);
-    const triggerPriceField = document.getElementById(`${prefix}TriggerPriceField`);
-    
-    if (!orderTypeSelect) return;
-    
-    orderTypeSelect.addEventListener('change', (e) => {
-        const orderType = e.target.value;
-        
-        if (orderType === 'MARKET') {
-            priceFields.classList.add('hidden');
-            limitPriceField.classList.add('hidden');
-            triggerPriceField.classList.add('hidden');
-        } else if (orderType === 'LIMIT') {
-            priceFields.classList.remove('hidden');
-            limitPriceField.classList.remove('hidden');
-            triggerPriceField.classList.add('hidden');
-        } else if (orderType === 'SL') {
-            priceFields.classList.remove('hidden');
-            limitPriceField.classList.remove('hidden');
-            triggerPriceField.classList.remove('hidden');
-        } else if (orderType === 'SL-M') {
-            priceFields.classList.remove('hidden');
-            limitPriceField.classList.add('hidden');
-            triggerPriceField.classList.remove('hidden');
-        }
-    });
-}
-
-/**
- * Add future order to basket
- */
-function addFutureToBasket(strategyType) {
-    const data = selectedStrategyData[strategyType];
-    const futureTransactionType = strategyType === 'bullish' ? 'BUY' : 'SELL';
-    
-    const order = {
-        type: 'future',
-        exchange: 'NFO',
-        tradingsymbol: data.future.symbol,
-        transaction_type: futureTransactionType,
-        lots: parseInt(document.getElementById('futureLots').value),
-        order_type: document.getElementById('futureOrderType').value,
-        product: document.getElementById('futureProduct').value,
-        variety: 'regular'
-    };
-    
-    if (order.order_type === 'LIMIT' || order.order_type === 'SL') {
-        const price = parseFloat(document.getElementById('futurePrice').value);
-        if (price) order.price = price;
-    }
-    
-    if (order.order_type === 'SL' || order.order_type === 'SL-M') {
-        const triggerPrice = parseFloat(document.getElementById('futureTriggerPrice').value);
-        if (triggerPrice) order.trigger_price = triggerPrice;
-    }
-    
-    strategyBasket.push(order);
-    updateBasketDisplay();
-    
-    console.log('Added to basket:', order);
-}
-
-/**
- * Add hedge order to basket
- */
-function addHedgeToBasket(strategyType) {
-    const data = selectedStrategyData[strategyType];
-    
-    const order = {
-        type: 'hedge',
-        exchange: 'NFO',
-        tradingsymbol: data.hedge.symbol,
-        transaction_type: 'BUY',
-        lots: parseInt(document.getElementById('hedgeLots').value),
-        order_type: document.getElementById('hedgeOrderType').value,
-        product: document.getElementById('hedgeProduct').value,
-        variety: 'regular'
-    };
-    
-    if (order.order_type === 'LIMIT' || order.order_type === 'SL') {
-        const price = parseFloat(document.getElementById('hedgePrice').value);
-        if (price) order.price = price;
-    }
-    
-    if (order.order_type === 'SL' || order.order_type === 'SL-M') {
-        const triggerPrice = parseFloat(document.getElementById('hedgeTriggerPrice').value);
-        if (triggerPrice) order.trigger_price = triggerPrice;
-    }
-    
-    strategyBasket.push(order);
-    updateBasketDisplay();
-    
-    console.log('Added to basket:', order);
-}
-
-/**
- * Update basket display
- */
-function updateBasketDisplay() {
-    const basketDisplay = document.getElementById('orderBasketDisplay');
-    const basketItems = document.getElementById('basketItems');
-    const basketCount = document.getElementById('basketCount');
-    
-    if (strategyBasket.length === 0) {
-        basketDisplay.classList.add('hidden');
-        return;
-    }
-    
-    basketDisplay.classList.remove('hidden');
-    basketCount.textContent = strategyBasket.length;
-    
-    basketItems.innerHTML = strategyBasket.map((order, index) => {
-        const sideColor = order.transaction_type === 'BUY' ? 'green' : 'red';
-        const typeColor = order.type === 'future' ? 'blue' : 'purple';
-        
-        let priceInfo = '';
-        if (order.price) priceInfo += ` @ ₹${order.price.toFixed(2)}`;
-        if (order.trigger_price) priceInfo += ` (Trigger: ₹${order.trigger_price.toFixed(2)})`;
-        
-        return `
-            <div class="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
-                <div class="flex items-center gap-2 flex-wrap">
-                    <span class="px-2 py-1 bg-${typeColor}-100 text-${typeColor}-700 text-xs font-bold rounded">
-                        ${order.type.toUpperCase()}
-                    </span>
-                    <span class="font-mono text-sm font-semibold">${order.tradingsymbol}</span>
-                    <span class="px-2 py-1 bg-${sideColor}-100 text-${sideColor}-700 text-xs font-bold rounded">
-                        ${order.transaction_type}
-                    </span>
-                    <span class="text-sm text-gray-600">${order.lots} lots</span>
-                    <span class="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">${order.order_type}</span>
-                    <span class="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">${order.product}</span>
-                    ${priceInfo ? `<span class="text-xs text-gray-600">${priceInfo}</span>` : ''}
-                </div>
-                <button onclick="removeFromBasket(${index})" class="text-red-600 hover:text-red-700 transition-colors">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                </button>
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar hidden">
+        <div class="py-4">
+            <div class="px-6 mb-4">
+                <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Menu</h3>
             </div>
-        `;
-    }).join('');
-}
-
-/**
- * Remove order from basket
- */
-function removeFromBasket(index) {
-    strategyBasket.splice(index, 1);
-    updateBasketDisplay();
-    
-    // Clear margin result when basket changes
-    const marginResult = document.getElementById('marginCheckResult');
-    if (marginResult) {
-        marginResult.classList.add('hidden');
-    }
-}
-
-/**
- * Clear all orders from basket
- */
-function clearBasket() {
-    if (strategyBasket.length === 0) return;
-    
-    if (confirm('Clear all orders from basket?')) {
-        strategyBasket = [];
-        updateBasketDisplay();
-        
-        const marginResult = document.getElementById('marginCheckResult');
-        if (marginResult) {
-            marginResult.classList.add('hidden');
-        }
-    }
-}
-
-/**
- * Check margin for basket
- */
-async function checkBasketMargin() {
-    if (strategyBasket.length === 0) {
-        alert('Basket is empty! Add orders first.');
-        return;
-    }
-    
-    const resultDiv = document.getElementById('marginCheckResult');
-    resultDiv.innerHTML = '<div class="text-center py-4"><div class="inline-block w-6 h-6 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div></div>';
-    resultDiv.classList.remove('hidden');
-    
-    try {
-        const response = await fetch(`${CONFIG.backendUrl}/api/strategy/check-basket-margin`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-User-ID': state.userId
-            },
-            body: JSON.stringify({ orders: strategyBasket })
-        });
-        
-        const marginData = await response.json();
-        
-        if (marginData.success) {
-            const sufficient = marginData.sufficient;
-            const color = sufficient ? 'green' : 'red';
-            
-            resultDiv.innerHTML = `
-                <div class="p-4 bg-${color}-50 border-2 border-${color}-200 rounded-lg">
-                    <h4 class="font-bold text-${color}-900 mb-3 flex items-center gap-2">
+            <nav>
+                <div class="menu-item active" data-page="dashboard">
+                    <div class="flex items-center gap-3">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
                         </svg>
-                        Margin Check Results
-                    </h4>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-3">
-                        <div class="bg-white rounded-lg p-3 border border-${color}-200">
-                            <span class="text-gray-600 block mb-1">Available Balance</span>
-                            <span class="font-bold text-lg">₹${marginData.available_balance.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
-                        </div>
-                        <div class="bg-white rounded-lg p-3 border border-${color}-200">
-                            <span class="text-gray-600 block mb-1">Required Margin</span>
-                            <span class="font-bold text-lg">₹${marginData.total_required.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
-                        </div>
-                        <div class="bg-white rounded-lg p-3 border border-${color}-200">
-                            <span class="text-gray-600 block mb-1">Remaining</span>
-                            <span class="font-bold text-lg">₹${(marginData.available_balance - marginData.total_required).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
-                        </div>
-                    </div>
-                    <div class="font-bold text-${color}-700 text-center py-2">
-                        ${sufficient ? '✅ Sufficient funds available' : '⚠️ Insufficient funds - need ₹' + (marginData.total_required - marginData.available_balance).toLocaleString('en-IN', {minimumFractionDigits: 2}) + ' more'}
+                        <span>Dashboard</span>
                     </div>
                 </div>
-            `;
-            
-            console.log('Margin Check:', marginData);
-        } else {
-            throw new Error(marginData.error);
-        }
-        
-    } catch (error) {
-        resultDiv.innerHTML = `
-            <div class="p-4 bg-red-50 border-2 border-red-200 rounded-lg">
-                <p class="text-red-700">❌ Error checking margin: ${error.message}</p>
-            </div>
-        `;
-    }
-}
-
-/**
- * Get status badge HTML
- */
-function getStatusBadge(status) {
-    const statusConfig = {
-        'COMPLETE': { color: 'green', icon: '✅', text: 'COMPLETE' },
-        'OPEN': { color: 'blue', icon: '⏳', text: 'OPEN' },
-        'PENDING': { color: 'yellow', icon: '⏱️', text: 'PENDING' },
-        'TRIGGER PENDING': { color: 'orange', icon: '⏱️', text: 'TRIGGER PENDING' },
-        'CANCELLED': { color: 'gray', icon: '❌', text: 'CANCELLED' },
-        'REJECTED': { color: 'red', icon: '🚫', text: 'REJECTED' },
-        'FAILED': { color: 'red', icon: '❌', text: 'FAILED' },
-        'UNKNOWN': { color: 'gray', icon: '❓', text: 'UNKNOWN' }
-    };
-    
-    const config = statusConfig[status] || statusConfig['UNKNOWN'];
-    
-    return `
-        <span class="px-2 py-1 bg-${config.color}-100 text-${config.color}-700 text-xs font-bold rounded-full">
-            ${config.icon} ${config.text}
-        </span>
-    `;
-}
-
-/**
- * Deploy basket orders with status tracking - COMPACT VERSION
- */
-async function deployBasket() {
-    if (strategyBasket.length === 0) {
-        showDeploymentStatus('error', 'Basket is empty! Add orders first.');
-        return;
-    }
-    
-    // Show loading state
-    const deployBtn = document.querySelector('button[onclick="deployBasket()"]');
-    const originalHTML = deployBtn.innerHTML;
-    deployBtn.disabled = true;
-    deployBtn.innerHTML = `
-        <div class="inline-block w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
-        <span>Deploying...</span>
-    `;
-    
-    try {
-        const response = await fetch(`${CONFIG.backendUrl}/api/strategy/deploy-basket`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-User-ID': state.userId
-            },
-            body: JSON.stringify({ orders: strategyBasket })
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            // Build COMPACT status display
-            let statusHTML = `
-                <div class="bg-gradient-to-br from-green-50 to-blue-50 p-3 rounded-lg border-2 border-green-200">
-                    <h4 class="text-base font-bold text-gray-900 mb-2 flex items-center gap-2">
-                        <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                <div class="menu-item" data-page="place-orders">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                         </svg>
-                        Order Status
-                    </h4>
-                    
-                    <!-- Compact Summary Stats -->
-                    <div class="grid grid-cols-3 gap-2 mb-3">
-                        <div class="bg-white rounded p-2 border border-gray-200 text-center">
-                            <div class="text-lg font-bold text-gray-900">${result.total_orders}</div>
-                            <div class="text-xs text-gray-600">Total</div>
-                        </div>
-                        <div class="bg-green-100 rounded p-2 border border-green-300 text-center">
-                            <div class="text-lg font-bold text-green-700">${result.successful}</div>
-                            <div class="text-xs text-green-700">Success</div>
-                        </div>
-                        <div class="bg-red-100 rounded p-2 border border-red-300 text-center">
-                            <div class="text-lg font-bold text-red-700">${result.failed}</div>
-                            <div class="text-xs text-red-700">Failed</div>
-                        </div>
+                        <span>Place Orders</span>
                     </div>
-                    
-                    <!-- Compact Order Details -->
-                    <div class="space-y-2">
-            `;
-            
-            result.results.forEach((r, index) => {
-                if (r.success) {
-                    deployedOrderIds.push(r.order_id);
-                    const statusBadge = getStatusBadge(r.status);
-                    
-                    statusHTML += `
-                        <div class="bg-white rounded p-2 border border-gray-200">
-                            <div class="flex items-start justify-between">
-                                <div class="flex-1">
-                                    <div class="flex items-center gap-2 mb-1">
-                                        <span class="font-mono font-semibold text-sm">${r.symbol}</span>
-                                        ${statusBadge}
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-1 text-xs">
-                                        <div><span class="text-gray-600">ID:</span> <span class="font-mono">${r.order_id}</span></div>
-                                        <div><span class="text-gray-600">Lots:</span> ${r.lots} (${r.quantity} qty)</div>
-                    `;
-                    
-                    if (r.filled_quantity > 0) {
-                        statusHTML += `<div><span class="text-gray-600">Filled:</span> <span class="text-green-700 font-semibold">${r.filled_quantity}</span></div>`;
-                    }
-                    
-                    if (r.average_price > 0) {
-                        statusHTML += `<div><span class="text-gray-600">Price:</span> ₹${r.average_price.toFixed(2)}</div>`;
-                    }
-                    
-                    statusHTML += `
-                                    </div>
-                                    ${r.status_message ? `<div class="text-xs text-gray-600 mt-1 italic">${r.status_message}</div>` : ''}
-                                </div>
-                                <button onclick="refreshOrderStatus('${r.order_id}')" 
-                                        class="ml-2 p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                                        title="Refresh">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    statusHTML += `
-                        <div class="bg-red-50 rounded p-2 border border-red-200">
-                            <div class="flex items-center gap-2 mb-1">
-                                <span class="font-mono font-semibold text-sm">${r.symbol}</span>
-                                ${getStatusBadge('FAILED')}
-                            </div>
-                            <div class="text-xs text-red-700">❌ ${r.error}</div>
-                        </div>
-                    `;
-                }
-            });
-            
-            statusHTML += `
+                </div>
+                <div class="menu-item" data-page="strategies">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                        </svg>
+                        <span>Spread Strategies</span>
                     </div>
-                    
-                    <!-- Compact Action Buttons -->
-                    <div class="flex gap-2 mt-3">
-                        <button onclick="refreshAllOrderStatuses()" 
-                                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-2 rounded-lg transition-colors flex items-center justify-center gap-1 text-xs">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                </div>
+                <div class="menu-item" data-page="option-spreads">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+                        </svg>
+                        <span>Option Spreads</span>
+                    </div>
+                </div>
+                <div class="menu-item" data-page="manage-positions">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                        </svg>
+                        <span>Manage Positions</span>
+                    </div>
+                </div>
+                <div class="menu-item" data-page="chart-monitor">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                        <span>Chart Monitor</span>
+                    </div>
+                </div>
+            </nav>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div id="mainContent" class="main-content">
+        
+        <!-- Login Page -->
+        <div id="loginPage" class="min-h-screen flex items-center justify-center px-6">
+            <div class="max-w-2xl w-full animate-slide-up">
+                <div class="text-center mb-12">
+                    <h1 class="text-5xl font-bold text-gray-900 mb-4">Welcome Back</h1>
+                    <p class="text-lg text-gray-600">Enter your Zerodha Kite API credentials to continue</p>
+                </div>
+
+                <div class="bg-white rounded-2xl border-2 border-gray-200 p-8 shadow-sm">
+                    <form id="credentialsForm" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-900 mb-2">API Key</label>
+                            <input
+                                type="text"
+                                id="apiKey"
+                                placeholder="Enter your Kite API Key"
+                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:border-[#FE4A03] transition-colors mono text-sm"
+                                required
+                            />
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-900 mb-2">API Secret</label>
+                            <input
+                                type="password"
+                                id="apiSecret"
+                                placeholder="Enter your API Secret"
+                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:border-[#FE4A03] transition-colors mono text-sm"
+                                required
+                            />
+                        </div>
+
+                        <div id="errorMessage" class="p-4 bg-red-50 border-2 border-red-200 rounded-lg hidden">
+                            <p class="text-sm text-red-700"></p>
+                        </div>
+
+                        <button
+                            type="submit"
+                            class="w-full btn-primary text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2"
+                        >
+                            Continue to Kite Login
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                            </svg>
+                        </button>
+                    </form>
+
+                    <div class="mt-8 pt-8 border-t border-gray-200">
+                        <p class="text-sm text-gray-500 text-center">
+                            Don't have API credentials? 
+                            <a href="https://kite.zerodha.com/connect/api" target="_blank" rel="noopener noreferrer" class="text-[#FE4A03] font-semibold hover:underline">
+                                Create API App
+                            </a>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Feature Cards -->
+                <div class="grid grid-cols-3 gap-6 mt-12">
+                    <div class="feature-card bg-white p-6 rounded-xl border-2 border-gray-200">
+                        <div class="w-10 h-10 bg-[#FE4A03] bg-opacity-10 rounded-lg flex items-center justify-center mb-4">
+                            <svg class="w-5 h-5 text-[#FE4A03]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                            </svg>
+                        </div>
+                        <h3 class="font-semibold text-gray-900 mb-2">Secure</h3>
+                        <p class="text-sm text-gray-600">Bank-grade encryption for your trading data</p>
+                    </div>
+
+                    <div class="feature-card bg-white p-6 rounded-xl border-2 border-gray-200">
+                        <div class="w-10 h-10 bg-[#FE4A03] bg-opacity-10 rounded-lg flex items-center justify-center mb-4">
+                            <svg class="w-5 h-5 text-[#FE4A03]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                            </svg>
+                        </div>
+                        <h3 class="font-semibold text-gray-900 mb-2">Fast</h3>
+                        <p class="text-sm text-gray-600">Lightning-quick order execution</p>
+                    </div>
+
+                    <div class="feature-card bg-white p-6 rounded-xl border-2 border-gray-200">
+                        <div class="w-10 h-10 bg-[#FE4A03] bg-opacity-10 rounded-lg flex items-center justify-center mb-4">
+                            <svg class="w-5 h-5 text-[#FE4A03]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                            </svg>
+                        </div>
+                        <h3 class="font-semibold text-gray-900 mb-2">Smart</h3>
+                        <p class="text-sm text-gray-600">Advanced algo trading strategies</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Processing Token -->
+        <div id="tokenPage" class="min-h-screen flex items-center justify-center px-6 hidden">
+            <div class="max-w-xl w-full animate-fade-in">
+                <div class="text-center mb-8">
+                    <h2 class="text-3xl font-bold text-gray-900 mb-2">Complete Login</h2>
+                    <p class="text-gray-600">Authenticating with Zerodha Kite...</p>
+                </div>
+
+                <div class="bg-white rounded-2xl border-2 border-gray-200 p-8 shadow-sm">
+                    <div class="flex flex-col items-center gap-4">
+                        <div class="w-16 h-16 bg-[#FE4A03] bg-opacity-10 rounded-full flex items-center justify-center">
+                            <svg class="w-8 h-8 text-[#FE4A03] animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                             </svg>
-                            Refresh
+                        </div>
+                        <div class="text-center">
+                            <p class="text-gray-900 font-semibold mb-1">Processing authentication...</p>
+                            <p class="text-sm text-gray-600">Request Token: <span id="displayToken" class="mono text-[#FE4A03]"></span></p>
+                        </div>
+                    </div>
+
+                    <div id="tokenErrorMessage" class="mt-6 p-4 bg-amber-50 border-2 border-amber-200 rounded-lg hidden">
+                        <p class="text-sm text-amber-700"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Page -->
+        <div id="dashboardPage" class="p-8 hidden">
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
+                <p class="text-gray-600">Welcome to BVR Funds</p>
+            </div>
+
+            <div class="bg-white border-2 border-gray-200 rounded-xl p-8">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">Getting Started</h2>
+                <p class="text-gray-600 mb-4">Your trading platform is ready. Use the menu on the left to:</p>
+                <ul class="space-y-2 text-gray-600">
+                    <li class="flex items-start gap-2">
+                        <span class="text-[#FE4A03]">•</span>
+                        <span>Place orders with basket functionality</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-[#FE4A03]">•</span>
+                        <span>Deploy and manage your trading strategies</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-[#FE4A03]">•</span>
+                        <span>Manage positions with automated trailing stop loss</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-[#FE4A03]">•</span>
+                        <span>Monitor charts and get alerts</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="text-[#FE4A03]">•</span>
+                        <span>Track your portfolio performance</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Place Orders Page -->
+        <div id="placeOrdersPage" class="p-8 hidden">
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">Place Orders</h1>
+                <p class="text-gray-600">Create and manage your order basket</p>
+            </div>
+
+            <!-- Order Entry Form -->
+            <div class="bg-white border-2 border-gray-200 rounded-xl p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">Order Entry</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                    <div style="position: relative;">
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Trading Symbol</label>
+                        <input
+                            type="text"
+                            id="orderSymbol"
+                            placeholder="Start typing... (e.g., RELIANCE, NIFTY)"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 mono text-sm"
+                            autocomplete="off"
+                        />
+                        <!-- Autocomplete dropdown will be inserted here by JavaScript -->
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Exchange</label>
+                        <select
+                            id="orderExchange"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                        >
+                            <option value="NFO">NFO</option>
+                            <option value="NSE">NSE</option>
+                            <option value="BSE">BSE</option>
+                            <option value="CDS">CDS</option>
+                            <option value="MCX">MCX</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Quantity</label>
+                        <input
+                            type="number"
+                            id="orderQuantity"
+                            value="15"
+                            min="1"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                        />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Transaction Type</label>
+                        <div class="flex gap-2">
+                            <button id="buyBtn" class="flex-1 px-4 py-3 border-2 border-gray-200 rounded-lg font-semibold text-sm transition-all bg-green-500 text-white">
+                                BUY
+                            </button>
+                            <button id="sellBtn" class="flex-1 px-4 py-3 border-2 border-gray-200 rounded-lg font-semibold text-sm transition-all">
+                                SELL
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Order Type</label>
+                        <select
+                            id="orderType"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                        >
+                            <option value="MARKET">MARKET</option>
+                            <option value="LIMIT">LIMIT</option>
+                            <option value="SL">SL (Stop Loss)</option>
+                            <option value="SL-M">SL-M (Stop Loss Market)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Product</label>
+                        <select
+                            id="orderProduct"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                        >
+                            <option value="MIS">MIS</option>
+                            <option value="CNC">CNC</option>
+                            <option value="NRML">NRML</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Price fields (conditional) -->
+                <div id="priceFields" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 hidden">
+                    <div id="limitPriceField" class="hidden">
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Price</label>
+                        <input
+                            type="number"
+                            id="orderPrice"
+                            step="0.05"
+                            placeholder="0.00"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                        />
+                    </div>
+
+                    <div id="triggerPriceField" class="hidden">
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Trigger Price</label>
+                        <input
+                            type="number"
+                            id="orderTriggerPrice"
+                            step="0.05"
+                            placeholder="0.00"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                        />
+                    </div>
+                </div>
+
+                <div class="flex gap-4">
+                    <button id="addOrderBtn" class="btn-primary text-white font-semibold px-6 py-3 rounded-lg">
+                        Add to Basket
+                    </button>
+                </div>
+            </div>
+
+            <!-- Order Basket -->
+            <div class="bg-white border-2 border-gray-200 rounded-xl p-6 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-gray-900">Order Basket</h2>
+                    <button id="clearBasketBtn" class="btn-danger text-white font-semibold px-4 py-2 rounded-lg text-sm">
+                        Clear All
+                    </button>
+                </div>
+                <div id="orderBasket" class="space-y-2">
+                    <div class="text-center text-gray-500 py-8">No orders in basket</div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="bg-white border-2 border-gray-200 rounded-xl p-6">
+                <div class="flex gap-4">
+                    <button id="checkMarginBtn" class="border-2 border-[#FE4A03] text-[#FE4A03] font-semibold px-6 py-3 rounded-lg hover:bg-[#FE4A03] hover:text-white transition-colors">
+                        Check Margin
+                    </button>
+                    <button id="placeAllOrdersBtn" class="btn-success text-white font-semibold px-6 py-3 rounded-lg">
+                        Place All Orders
+                    </button>
+                    <button id="refreshOrderStatusBtn" class="btn-secondary text-white font-semibold px-6 py-3 rounded-lg">
+                        Refresh Status
+                    </button>
+                </div>
+                <div id="orderStatusOutput" class="mt-6"></div>
+                <div id="orderSummaryOutput" class="mt-6"></div>
+            </div>
+        </div>
+
+        <!-- Strategies Page -->
+        <div id="strategiesPage" class="p-8 hidden">
+            <div class="mb-6">
+                <h1 class="text-2xl font-bold text-gray-900 mb-1">Spread Strategies</h1>
+                <p class="text-sm text-gray-600">Deploy spread strategies with futures</p>
+            </div>
+
+            <!-- Premium Range Configuration - COMPACT -->
+            <div class="bg-white border-2 border-gray-200 rounded-xl p-4 mb-4">
+                <h2 class="text-lg font-bold text-gray-900 mb-3">Premium Range Configuration</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-900 mb-1">Lower Premium (₹)</label>
+                        <input
+                            type="number"
+                            id="lowerPremium"
+                            value="40"
+                            min="0"
+                            step="5"
+                            class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                        />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-900 mb-1">Upper Premium (₹)</label>
+                        <input
+                            type="number"
+                            id="upperPremium"
+                            value="60"
+                            min="0"
+                            step="5"
+                            class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Strategy Cards Grid - COMPACT -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                
+                <!-- Bullish Future Spread Card - COMPACT -->
+                <div class="bg-white border-2 border-gray-200 rounded-xl overflow-hidden hover:border-green-300 transition-all">
+                    <div class="bg-gradient-to-r from-green-50 to-green-100 p-4 border-b-2 border-gray-200">
+                        <div class="flex items-center gap-2">
+                            <div class="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-bold text-gray-900">Bullish Future Spread</h3>
+                                <p class="text-xs text-gray-600">Bull Put Spread Strategy</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="p-4">
+                        <div class="mb-3">
+                            <p class="text-xs text-gray-600 mb-2">
+                                📈 <strong>Strategy:</strong> Buy NIFTY Future + Buy PUT Hedge
+                            </p>
+                            <p class="text-xs text-gray-500">
+                                Ideal for bullish market outlook with downside protection
+                            </p>
+                        </div>
+                        
+                        <!-- Results Area - COMPACT -->
+                        <div id="bullishResults" class="hidden mb-3">
+                            <!-- Future Details -->
+                            <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-3 mb-2">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-xs font-semibold text-blue-600 uppercase">Future</span>
+                                    <span class="badge badge-info text-xs">NFO</span>
+                                </div>
+                                <div class="font-bold text-gray-900 mono text-xs mb-1" id="bullishFutureSymbol">-</div>
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="text-gray-600">Token: <span id="bullishFutureToken" class="mono">-</span></span>
+                                    <span class="text-gray-900 font-semibold">₹<span id="bullishFuturePrice">-</span></span>
+                                </div>
+                            </div>
+                            
+                            <!-- Hedge Details -->
+                            <div class="bg-green-50 border-2 border-green-200 rounded-lg p-3">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-xs font-semibold text-green-600 uppercase">PUT Hedge</span>
+                                    <span class="badge badge-info text-xs">NFO</span>
+                                </div>
+                                <div class="font-bold text-gray-900 mono text-xs mb-1" id="bullishHedgeSymbol">-</div>
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="text-gray-600">Token: <span id="bullishHedgeToken" class="mono">-</span></span>
+                                    <span class="text-gray-900 font-semibold">₹<span id="bullishHedgePrice">-</span></span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons - COMPACT -->
+                        <div id="bullishActionBtns">
+                            <button id="executeBullishBtn" class="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 rounded-lg transition-all flex items-center justify-center gap-2 text-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                </svg>
+                                <span>Find Instruments</span>
+                            </button>
+                            
+                            <button id="deployBullishBtn" class="hidden w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition-all flex items-center justify-center gap-2 mt-2 text-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                </svg>
+                                <span>Deploy Strategy</span>
+                            </button>
+                        </div>
+                        
+                        <!-- Loading State - COMPACT -->
+                        <div id="bullishLoading" class="hidden text-center py-6">
+                            <div class="inline-block w-6 h-6 border-4 border-green-200 border-t-green-500 rounded-full animate-spin"></div>
+                            <p class="text-xs text-gray-600 mt-2">Searching...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bearish Future Spread Card - COMPACT -->
+                <div class="bg-white border-2 border-gray-200 rounded-xl overflow-hidden hover:border-red-300 transition-all">
+                    <div class="bg-gradient-to-r from-red-50 to-red-100 p-4 border-b-2 border-gray-200">
+                        <div class="flex items-center gap-2">
+                            <div class="w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-bold text-gray-900">Bearish Future Spread</h3>
+                                <p class="text-xs text-gray-600">Bear Call Spread Strategy</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="p-4">
+                        <div class="mb-3">
+                            <p class="text-xs text-gray-600 mb-2">
+                                📉 <strong>Strategy:</strong> Sell NIFTY Future + Buy CALL Hedge
+                            </p>
+                            <p class="text-xs text-gray-500">
+                                Ideal for bearish market outlook with upside protection
+                            </p>
+                        </div>
+                        
+                        <!-- Results Area - COMPACT -->
+                        <div id="bearishResults" class="hidden mb-3">
+                            <!-- Future Details -->
+                            <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-3 mb-2">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-xs font-semibold text-blue-600 uppercase">Future</span>
+                                    <span class="badge badge-info text-xs">NFO</span>
+                                </div>
+                                <div class="font-bold text-gray-900 mono text-xs mb-1" id="bearishFutureSymbol">-</div>
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="text-gray-600">Token: <span id="bearishFutureToken" class="mono">-</span></span>
+                                    <span class="text-gray-900 font-semibold">₹<span id="bearishFuturePrice">-</span></span>
+                                </div>
+                            </div>
+                            
+                            <!-- Hedge Details -->
+                            <div class="bg-red-50 border-2 border-red-200 rounded-lg p-3">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-xs font-semibold text-red-600 uppercase">CALL Hedge</span>
+                                    <span class="badge badge-info text-xs">NFO</span>
+                                </div>
+                                <div class="font-bold text-gray-900 mono text-xs mb-1" id="bearishHedgeSymbol">-</div>
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="text-gray-600">Token: <span id="bearishHedgeToken" class="mono">-</span></span>
+                                    <span class="text-gray-900 font-semibold">₹<span id="bearishHedgePrice">-</span></span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons - COMPACT -->
+                        <div id="bearishActionBtns">
+                            <button id="executeBearishBtn" class="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-2 rounded-lg transition-all flex items-center justify-center gap-2 text-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                </svg>
+                                <span>Find Instruments</span>
+                            </button>
+                            
+                            <button id="deployBearishBtn" class="hidden w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition-all flex items-center justify-center gap-2 mt-2 text-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                </svg>
+                                <span>Deploy Strategy</span>
+                            </button>
+                        </div>
+                        
+                        <!-- Loading State - COMPACT -->
+                        <div id="bearishLoading" class="hidden text-center py-6">
+                            <div class="inline-block w-6 h-6 border-4 border-red-200 border-t-red-500 rounded-full animate-spin"></div>
+                            <p class="text-xs text-gray-600 mt-2">Searching...</p>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+
+            <!-- Info Panel - COMPACT -->
+            <div class="mt-4 bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+                <h3 class="font-bold text-blue-900 mb-2 flex items-center gap-2 text-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    Strategy Information
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-blue-800">
+                    <div>
+                        <strong>Bullish Spread:</strong> Combines long NIFTY future with PUT protection for downside risk management.
+                    </div>
+                    <div>
+                        <strong>Bearish Spread:</strong> Combines short NIFTY future with CALL protection for upside risk management.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Option Spreads Page (Duplicate of Strategies Page) -->
+        <div id="optionSpreadsPage" class="p-8 hidden">
+            <div class="mb-6">
+                <h1 class="text-2xl font-bold text-gray-900 mb-1">Option Spreads</h1>
+                <p class="text-sm text-gray-600">Deploy spread strategies with options</p>
+            </div>
+
+            <!-- Premium Range Configuration - COMPACT -->
+            <div class="bg-white border-2 border-gray-200 rounded-xl p-4 mb-4">
+                <h2 class="text-lg font-bold text-gray-900 mb-3">Premium Range Configuration</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-900 mb-1">Lower Premium (₹)</label>
+                        <input
+                            type="number"
+                            id="lowerPremiumOptions"
+                            value="40"
+                            min="0"
+                            step="5"
+                            class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                        />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-900 mb-1">Upper Premium (₹)</label>
+                        <input
+                            type="number"
+                            id="upperPremiumOptions"
+                            value="60"
+                            min="0"
+                            step="5"
+                            class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Strategy Cards Grid - COMPACT -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                
+                <!-- Bullish Option Spread Card - COMPACT -->
+                <div class="bg-white border-2 border-gray-200 rounded-xl overflow-hidden hover:border-green-300 transition-all">
+                    <div class="bg-gradient-to-r from-green-50 to-green-100 p-4 border-b-2 border-gray-200">
+                        <div class="flex items-center gap-2">
+                            <div class="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-bold text-gray-900">Bullish Option Spread</h3>
+                                <p class="text-xs text-gray-600">Bull Call Spread Strategy</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="p-4">
+                        <div class="mb-3">
+                            <p class="text-xs text-gray-600 mb-2">
+                                📈 <strong>Strategy:</strong> Buy ITM CALL + Sell OTM CALL
+                            </p>
+                            <p class="text-xs text-gray-500">
+                                Ideal for moderately bullish market outlook
+                            </p>
+                        </div>
+                        
+                        <!-- Results Area - COMPACT -->
+                        <div id="bullishOptionsResults" class="hidden mb-3">
+                            <!-- Buy Call Details -->
+                            <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-3 mb-2">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-xs font-semibold text-blue-600 uppercase">Buy CALL</span>
+                                    <span class="badge badge-info text-xs">NFO</span>
+                                </div>
+                                <div class="font-bold text-gray-900 mono text-xs mb-1" id="bullishOptionsBuySymbol">-</div>
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="text-gray-600">Token: <span id="bullishOptionsBuyToken" class="mono">-</span></span>
+                                    <span class="text-gray-900 font-semibold">₹<span id="bullishOptionsBuyPrice">-</span></span>
+                                </div>
+                            </div>
+                            
+                            <!-- Sell Call Details -->
+                            <div class="bg-green-50 border-2 border-green-200 rounded-lg p-3">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-xs font-semibold text-green-600 uppercase">Sell CALL</span>
+                                    <span class="badge badge-info text-xs">NFO</span>
+                                </div>
+                                <div class="font-bold text-gray-900 mono text-xs mb-1" id="bullishOptionsSellSymbol">-</div>
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="text-gray-600">Token: <span id="bullishOptionsSellToken" class="mono">-</span></span>
+                                    <span class="text-gray-900 font-semibold">₹<span id="bullishOptionsSellPrice">-</span></span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons - COMPACT -->
+                        <div id="bullishOptionsActionBtns">
+                            <button id="executeBullishOptionsBtn" class="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 rounded-lg transition-all flex items-center justify-center gap-2 text-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                </svg>
+                                <span>Find Instruments</span>
+                            </button>
+                            
+                            <button id="deployBullishOptionsBtn" class="hidden w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition-all flex items-center justify-center gap-2 mt-2 text-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                </svg>
+                                <span>Deploy Strategy</span>
+                            </button>
+                        </div>
+                        
+                        <!-- Loading State - COMPACT -->
+                        <div id="bullishOptionsLoading" class="hidden text-center py-6">
+                            <div class="inline-block w-6 h-6 border-4 border-green-200 border-t-green-500 rounded-full animate-spin"></div>
+                            <p class="text-xs text-gray-600 mt-2">Searching...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bearish Option Spread Card - COMPACT -->
+                <div class="bg-white border-2 border-gray-200 rounded-xl overflow-hidden hover:border-red-300 transition-all">
+                    <div class="bg-gradient-to-r from-red-50 to-red-100 p-4 border-b-2 border-gray-200">
+                        <div class="flex items-center gap-2">
+                            <div class="w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-bold text-gray-900">Bearish Option Spread</h3>
+                                <p class="text-xs text-gray-600">Bear Put Spread Strategy</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="p-4">
+                        <div class="mb-3">
+                            <p class="text-xs text-gray-600 mb-2">
+                                📉 <strong>Strategy:</strong> Buy ITM PUT + Sell OTM PUT
+                            </p>
+                            <p class="text-xs text-gray-500">
+                                Ideal for moderately bearish market outlook
+                            </p>
+                        </div>
+                        
+                        <!-- Results Area - COMPACT -->
+                        <div id="bearishOptionsResults" class="hidden mb-3">
+                            <!-- Buy Put Details -->
+                            <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-3 mb-2">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-xs font-semibold text-blue-600 uppercase">Buy PUT</span>
+                                    <span class="badge badge-info text-xs">NFO</span>
+                                </div>
+                                <div class="font-bold text-gray-900 mono text-xs mb-1" id="bearishOptionsBuySymbol">-</div>
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="text-gray-600">Token: <span id="bearishOptionsBuyToken" class="mono">-</span></span>
+                                    <span class="text-gray-900 font-semibold">₹<span id="bearishOptionsBuyPrice">-</span></span>
+                                </div>
+                            </div>
+                            
+                            <!-- Sell Put Details -->
+                            <div class="bg-red-50 border-2 border-red-200 rounded-lg p-3">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-xs font-semibold text-red-600 uppercase">Sell PUT</span>
+                                    <span class="badge badge-info text-xs">NFO</span>
+                                </div>
+                                <div class="font-bold text-gray-900 mono text-xs mb-1" id="bearishOptionsSellSymbol">-</div>
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="text-gray-600">Token: <span id="bearishOptionsSellToken" class="mono">-</span></span>
+                                    <span class="text-gray-900 font-semibold">₹<span id="bearishOptionsSellPrice">-</span></span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons - COMPACT -->
+                        <div id="bearishOptionsActionBtns">
+                            <button id="executeBearishOptionsBtn" class="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-2 rounded-lg transition-all flex items-center justify-center gap-2 text-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                </svg>
+                                <span>Find Instruments</span>
+                            </button>
+                            
+                            <button id="deployBearishOptionsBtn" class="hidden w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition-all flex items-center justify-center gap-2 mt-2 text-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                </svg>
+                                <span>Deploy Strategy</span>
+                            </button>
+                        </div>
+                        
+                        <!-- Loading State - COMPACT -->
+                        <div id="bearishOptionsLoading" class="hidden text-center py-6">
+                            <div class="inline-block w-6 h-6 border-4 border-red-200 border-t-red-500 rounded-full animate-spin"></div>
+                            <p class="text-xs text-gray-600 mt-2">Searching...</p>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+
+            <!-- Info Panel - COMPACT -->
+            <div class="mt-4 bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+                <h3 class="font-bold text-blue-900 mb-2 flex items-center gap-2 text-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    Strategy Information
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-blue-800">
+                    <div>
+                        <strong>Bullish Spread:</strong> Limited risk, limited reward strategy for moderately bullish outlook.
+                    </div>
+                    <div>
+                        <strong>Bearish Spread:</strong> Limited risk, limited reward strategy for moderately bearish outlook.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Manage Positions Page -->
+        <div id="managePositionsPage" class="p-8 hidden">
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">Manage Positions</h1>
+                <p class="text-gray-600">Monitor and manage your open positions with automated trailing stop loss</p>
+            </div>
+
+            <!-- WebSocket Status -->
+            <div id="wsStatus" class="mb-4"></div>
+
+            <!-- Positions List -->
+            <div class="bg-white border-2 border-gray-200 rounded-xl p-6 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-gray-900">Active Positions</h2>
+                    <button id="refreshPositionsBtn" class="btn-secondary text-white font-semibold px-4 py-2 rounded-lg text-sm">
+                        🔄 Refresh
+                    </button>
+                </div>
+                <div id="positionsList">
+                    <div class="text-center text-gray-500 py-8">Loading positions...</div>
+                </div>
+            </div>
+
+            <!-- Position Actions Panel -->
+            <div id="positionActionsPanel" class="hidden">
+                <div class="bg-white border-2 border-gray-200 rounded-xl p-6 mb-6">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">Position Actions</h2>
+                    <div id="selectedPositionInfo"></div>
+                    <div class="flex gap-4 mt-4">
+                        <button id="trailSlBtn" class="btn-success text-white font-semibold px-6 py-3 rounded-lg">
+                            🎯 Setup Trail SL
                         </button>
-                        <button onclick="clearDeploymentStatus()" 
-                                class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-2 rounded-lg transition-colors text-xs">
-                            Deploy More
-                        </button>
-                        <button onclick="closeDeploymentModal()" 
-                                class="flex-1 border-2 border-gray-400 text-gray-700 hover:bg-gray-100 font-semibold py-2 px-2 rounded-lg transition-colors text-xs">
-                            Close
+                        <button id="exitImmediatelyBtn" class="btn-danger text-white font-semibold px-6 py-3 rounded-lg">
+                            ⚡ Exit Immediately
                         </button>
                     </div>
                 </div>
-            `;
-            
-            showDeploymentStatus('success', statusHTML);
-            
-            // Clear basket and re-enable button
-            strategyBasket = [];
-            updateBasketDisplay();
-            deployBtn.disabled = false;
-            deployBtn.innerHTML = originalHTML;
-            
-            // Silent console log
-            console.log('✅ Deployment completed:', result.results);
-            
-        } else {
-            throw new Error(result.error);
-        }
-        
-    } catch (error) {
-        showDeploymentStatus('error', `Error deploying orders: ${error.message}`);
-        deployBtn.disabled = false;
-        deployBtn.innerHTML = originalHTML;
-        console.error('❌ Deployment error:', error);
-    }
-}
 
-/**
- * Refresh status for a single order
- */
-async function refreshOrderStatus(orderId) {
-    try {
-        const response = await fetch(`${CONFIG.backendUrl}/api/order-status/${orderId}`, {
-            method: 'GET',
-            headers: {
-                'X-User-ID': state.userId
-            }
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            console.log('Order status refreshed:', data);
-        } else {
-            throw new Error(data.error);
-        }
-        
-    } catch (error) {
-        console.error('Error refreshing order status:', error);
-    }
-}
+                <!-- Trail SL Configuration -->
+                <div id="trailSlConfig" class="bg-white border-2 border-gray-200 rounded-xl p-6 mb-6 hidden">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">Trailing Stop Loss Configuration</h2>
+                    <div id="trailConfigContent"></div>
+                </div>
 
-/**
- * Refresh all deployed order statuses
- */
-async function refreshAllOrderStatuses() {
-    if (deployedOrderIds.length === 0) {
-        console.log('No orders to refresh');
-        return;
-    }
-    
-    try {
-        const response = await fetch(`${CONFIG.backendUrl}/api/orders-status/batch`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-User-ID': state.userId
-            },
-            body: JSON.stringify({ order_ids: deployedOrderIds })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            console.log('All order statuses refreshed:', data.results);
-        } else {
-            throw new Error(data.error);
-        }
-        
-    } catch (error) {
-        console.error('Error refreshing statuses:', error);
-    }
-}
-
-/**
- * Show deployment status inline
- */
-function showDeploymentStatus(type, message) {
-    const marginResult = document.getElementById('marginCheckResult');
-    
-    if (type === 'success') {
-        marginResult.innerHTML = message;
-    } else if (type === 'error') {
-        marginResult.innerHTML = `
-            <div class="p-4 bg-red-50 border-2 border-red-200 rounded-lg">
-                <p class="text-red-700 font-semibold mb-3">${message}</p>
-                <button onclick="clearDeploymentStatus()" class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
-                    Try Again
-                </button>
+                <!-- Trail Status -->
+                <div id="trailStatus" class="bg-white border-2 border-gray-200 rounded-xl p-6 hidden">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">Trailing Status</h2>
+                    <div id="trailStatusContent"></div>
+                </div>
             </div>
-        `;
-    }
-    
-    marginResult.classList.remove('hidden');
-    marginResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
 
-/**
- * Clear deployment status
- */
-function clearDeploymentStatus() {
-    const marginResult = document.getElementById('marginCheckResult');
-    if (marginResult) {
-        marginResult.classList.add('hidden');
-        marginResult.innerHTML = '';
-    }
-}
+            <!-- Messages -->
+            <div id="positionMessages" class="bg-white border-2 border-gray-200 rounded-xl p-6"></div>
+        </div>
 
-/**
- * Close deployment modal
- */
-function closeDeploymentModal() {
-    const modal = document.getElementById('deploymentModal');
-    if (modal) {
-        modal.style.animation = 'fadeOut 0.3s ease-out';
-        setTimeout(() => modal.remove(), 300);
-    }
-}
+        <!-- Chart Monitor Page -->
+        <div id="chartMonitorPage" class="p-8 hidden">
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">Chart Monitor</h1>
+                <p class="text-gray-600">Monitor candle strength and get email alerts</p>
+            </div>
 
-// Setup function
-function setupStrategiesListeners() {
-    document.getElementById('executeBullishBtn')?.addEventListener('click', executeBullishStrategy);
-    document.getElementById('executeBearishBtn')?.addEventListener('click', executeBearishStrategy);
-    document.getElementById('deployBullishBtn')?.addEventListener('click', openBullishDeployment);
-    document.getElementById('deployBearishBtn')?.addEventListener('click', openBearishDeployment);
-}
+            <!-- Monitor Controls -->
+            <div class="bg-white border-2 border-gray-200 rounded-xl p-6 mb-6">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-900 mb-1">Monitor Status</h2>
+                        <p class="text-sm text-gray-600">Checks every 5 minutes for strong candles</p>
+                    </div>
+                    <div id="monitorStatus" class="monitor-status inactive">
+                        <div class="pulse bg-red-600"></div>
+                        <span>Stopped</span>
+                    </div>
+                </div>
 
-// Make functions available globally
-window.closeDeploymentModal = closeDeploymentModal;
-window.addFutureToBasket = addFutureToBasket;
-window.addHedgeToBasket = addHedgeToBasket;
-window.removeFromBasket = removeFromBasket;
-window.clearBasket = clearBasket;
-window.checkBasketMargin = checkBasketMargin;
-window.deployBasket = deployBasket;
-window.showDeploymentStatus = showDeploymentStatus;
-window.clearDeploymentStatus = clearDeploymentStatus;
-window.refreshOrderStatus = refreshOrderStatus;
-window.refreshAllOrderStatuses = refreshAllOrderStatuses;
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Instrument Token</label>
+                        <input
+                            type="number"
+                            id="instrumentToken"
+                            value="256265"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 mono text-sm"
+                        />
+                        <p class="text-xs text-gray-500 mt-1">Default: NIFTY 50 (256265)</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Interval</label>
+                        <select
+                            id="intervalSelect"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                        >
+                            <option value="minute">1 Minute</option>
+                            <option value="3minute">3 Minutes</option>
+                            <option value="5minute">5 Minutes</option>
+                            <option value="10minute">10 Minutes</option>
+                            <option value="15minute" selected>15 Minutes</option>
+                            <option value="30minute">30 Minutes</option>
+                            <option value="60minute">1 Hour</option>
+                            <option value="day">1 Day</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Threshold (%)</label>
+                        <input
+                            type="number"
+                            id="thresholdPercent"
+                            value="75"
+                            min="0"
+                            max="100"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                        />
+                        <p class="text-xs text-gray-500 mt-1">Alert when body is above this %</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-900 mb-2">Check Frequency</label>
+                        <select
+                            id="checkFrequency"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                        >
+                            <option value="60">1 Minute</option>
+                            <option value="180">3 Minutes</option>
+                            <option value="300" selected>5 Minutes</option>
+                            <option value="600">10 Minutes</option>
+                            <option value="900">15 Minutes</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex gap-4">
+                    <button id="startMonitorBtn" class="btn-primary text-white font-semibold px-6 py-3 rounded-lg">
+                        Start Monitor
+                    </button>
+                    <button id="stopMonitorBtn" class="btn-secondary text-white font-semibold px-6 py-3 rounded-lg hidden">
+                        Stop Monitor
+                    </button>
+                    <button id="checkNowBtn" class="border-2 border-gray-300 text-gray-700 font-semibold px-6 py-3 rounded-lg hover:bg-gray-50">
+                        Check Now
+                    </button>
+                    <button id="testEmailBtn" class="border-2 border-[#FE4A03] text-[#FE4A03] font-semibold px-6 py-3 rounded-lg hover:bg-[#FE4A03] hover:text-white transition-colors">
+                        Test Email
+                    </button>
+                </div>
+            </div>
+
+            <!-- Activity Log -->
+            <div class="bg-white border-2 border-gray-200 rounded-xl p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">Activity Log</h2>
+                <div id="activityLog" class="space-y-2 max-h-96 overflow-y-auto">
+                    <div class="log-entry info">
+                        <span class="text-xs text-gray-500">Ready to start monitoring</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Load external JavaScript -->
+    <script src="app.js"></script>
+    <script src="autocomplete_addon.js"></script>
+    <script src="strategy_deployment_with_basket.js"></script>
+</body>
+</html>
