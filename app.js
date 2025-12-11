@@ -1,415 +1,357 @@
-// =========================================================
-// ENHANCED STRATEGY DEPLOYMENT WITH ORDER STATUS TRACKING
-// 40% smaller modal - compact version
-// =========================================================
-
-// Store selected strategy data
-let selectedStrategyData = {
-    bullish: null,
-    bearish: null
+// Configuration
+const CONFIG = {
+    redirectUrl: window.location.origin + window.location.pathname.replace(/\/+$/, ''),
+    backendUrl: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+        ? 'http://localhost:5000'
+        : 'https://shark-app-hyd9r.ondigitalocean.app'
 };
 
-// Store basket orders
-let strategyBasket = [];
+// State management
+let state = {
+    apiKey: '',
+    apiSecret: '',
+    accessToken: '',
+    userId: '',
+    profile: null,
+    currentPage: 'dashboard',
+    orderBasket: [],
+    placedOrders: [],
+    selectedPosition: null,
+    monitorInterval: null,
+    monitorRunning: false,
+    autoTrailInterval: null  // For polling auto trail status
+};
 
-// Store deployed order IDs for status tracking
-let deployedOrderIds = [];
+// Initialize
+window.addEventListener('load', () => {
+    console.log('Page loaded');
+    checkAuthStatus();
+    setupEventListeners();
+});
 
-/**
- * Update executeBullishStrategy to show Deploy button after finding instruments
- */
-async function executeBullishStrategy() {
-    const button = document.getElementById('executeBullishBtn');
-    const deployBtn = document.getElementById('deployBullishBtn');
-    const loading = document.getElementById('bullishLoading');
-    const results = document.getElementById('bullishResults');
-    
-    const lowerPremium = parseFloat(document.getElementById('lowerPremium').value);
-    const upperPremium = parseFloat(document.getElementById('upperPremium').value);
-    
-    if (lowerPremium >= upperPremium) {
-        alert('Lower premium must be less than upper premium');
-        return;
+// ===========================================
+// AUTHENTICATION & SESSION MANAGEMENT
+// ===========================================
+
+function checkAuthStatus() {
+    console.log('Checking auth status...');
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('request_token');
+    const status = urlParams.get('status');
+    const action = urlParams.get('action');
+
+    if (token && status === 'success' && action === 'login') {
+        const storedApiKey = sessionStorage.getItem('api_key');
+        const storedApiSecret = sessionStorage.getItem('api_secret');
+
+        if (storedApiKey && storedApiSecret) {
+            state.apiKey = storedApiKey;
+            state.apiSecret = storedApiSecret;
+            document.getElementById('displayToken').textContent = token.substring(0, 20) + '...';
+            showPage('token');
+            setTimeout(() => completeLogin(token), 1000);
+        } else {
+            showError('Session expired. Please login again.');
+            showPage('login');
+        }
+    } else {
+        const accessToken = sessionStorage.getItem('access_token');
+        if (accessToken) {
+            state.accessToken = accessToken;
+            state.userId = sessionStorage.getItem('user_id');
+            loadProfile();
+            showPage('dashboard');
+        } else {
+            showPage('login');
+        }
     }
-    
-    button.classList.add('hidden');
-    loading.classList.remove('hidden');
-    results.classList.add('hidden');
-    if (deployBtn) deployBtn.classList.add('hidden');
-    
+}
+
+async function completeLogin(requestToken) {
     try {
-        const response = await fetch(`${CONFIG.backendUrl}/api/strategy/bullish-future-spread`, {
+        const response = await fetch(`${CONFIG.backendUrl}/api/generate-session`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-User-ID': state.userId
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                lower_premium: lowerPremium,
-                upper_premium: upperPremium
+                api_key: state.apiKey,
+                api_secret: state.apiSecret,
+                request_token: requestToken
             })
         });
-        
+
         const data = await response.json();
-        
-        if (data.success) {
-            selectedStrategyData.bullish = data;
-            displayBullishResults(data);
-            
-            if (deployBtn) {
-                deployBtn.classList.remove('hidden');
-            }
-            
-            console.log('=== BULLISH FUTURE SPREAD ===');
-            console.log('Future:', data.future);
-            console.log('Hedge:', data.hedge);
-            console.log('============================');
+
+        if (response.ok && data.success) {
+            sessionStorage.setItem('access_token', data.access_token);
+            sessionStorage.setItem('user_id', data.user_id);
+            state.accessToken = data.access_token;
+            state.userId = data.user_id;
+
+            await loadProfile();
+            window.history.replaceState({}, document.title, window.location.pathname);
+            showPage('dashboard');
         } else {
-            throw new Error(data.error || 'Failed to execute strategy');
+            throw new Error(data.error || 'Failed to generate session');
         }
-        
     } catch (error) {
-        console.error('Strategy error:', error);
-        alert('Error executing strategy: ' + error.message);
-    } finally {
-        button.classList.remove('hidden');
-        loading.classList.add('hidden');
+        console.error('Login error:', error);
+        simulateDemoMode();
     }
 }
 
-/**
- * Update executeBearishStrategy similarly
- */
-async function executeBearishStrategy() {
-    const button = document.getElementById('executeBearishBtn');
-    const deployBtn = document.getElementById('deployBearishBtn');
-    const loading = document.getElementById('bearishLoading');
-    const results = document.getElementById('bearishResults');
-    
-    const lowerPremium = parseFloat(document.getElementById('lowerPremium').value);
-    const upperPremium = parseFloat(document.getElementById('upperPremium').value);
-    
-    if (lowerPremium >= upperPremium) {
-        alert('Lower premium must be less than upper premium');
-        return;
-    }
-    
-    button.classList.add('hidden');
-    loading.classList.remove('hidden');
-    results.classList.add('hidden');
-    if (deployBtn) deployBtn.classList.add('hidden');
-    
+async function loadProfile() {
     try {
-        const response = await fetch(`${CONFIG.backendUrl}/api/strategy/bearish-future-spread`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-User-ID': state.userId
-            },
-            body: JSON.stringify({
-                lower_premium: lowerPremium,
-                upper_premium: upperPremium
-            })
+        const response = await fetch(`${CONFIG.backendUrl}/api/profile`, {
+            headers: { 'X-User-ID': state.userId }
         });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            selectedStrategyData.bearish = data;
-            displayBearishResults(data);
-            
-            if (deployBtn) {
-                deployBtn.classList.remove('hidden');
+
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+                updateProfile(data.profile);
             }
-            
-            console.log('=== BEARISH FUTURE SPREAD ===');
-            console.log('Future:', data.future);
-            console.log('Hedge:', data.hedge);
-            console.log('=============================');
-        } else {
-            throw new Error(data.error || 'Failed to execute strategy');
         }
-        
     } catch (error) {
-        console.error('Strategy error:', error);
-        alert('Error executing strategy: ' + error.message);
-    } finally {
-        button.classList.remove('hidden');
-        loading.classList.add('hidden');
+        console.error('Profile fetch error:', error);
     }
 }
 
-/**
- * Open deployment modal for Bullish strategy
- */
-function openBullishDeployment() {
-    const data = selectedStrategyData.bullish;
-    if (!data || !data.future || !data.hedge) {
-        alert('Please find instruments first');
+function updateProfile(profile) {
+    state.profile = profile;
+    const nameParts = profile.user_name.split(' ');
+    const initials = nameParts.map(n => n[0]).join('').toUpperCase().substring(0, 2);
+    
+    document.getElementById('profileName').textContent = profile.user_name;
+    document.getElementById('profileEmail').textContent = profile.email;
+    document.getElementById('profileInitials').textContent = initials;
+    document.getElementById('menuUserName').textContent = profile.user_name;
+    document.getElementById('menuUserId').textContent = profile.user_id;
+    document.getElementById('menuEmail').textContent = profile.email;
+    document.getElementById('menuUserType').textContent = profile.user_type || 'individual';
+    document.getElementById('menuBroker').textContent = profile.broker || 'Zerodha';
+    
+    const productsContainer = document.getElementById('menuProducts');
+    productsContainer.innerHTML = '';
+    if (profile.products && profile.products.length > 0) {
+        profile.products.forEach(product => {
+            const badge = document.createElement('span');
+            badge.className = 'px-2 py-1 bg-[#FE4A03] bg-opacity-10 text-[#FE4A03] text-xs font-semibold rounded';
+            badge.textContent = product.toUpperCase();
+            productsContainer.appendChild(badge);
+        });
+    }
+}
+
+function simulateDemoMode() {
+    const demoProfile = {
+        user_id: 'DEMO123',
+        user_name: 'Demo User',
+        email: 'demo@bvrfunds.com',
+        user_type: 'individual',
+        broker: 'Zerodha',
+        products: ['CNC', 'MIS', 'NRML']
+    };
+    updateProfile(demoProfile);
+    setTimeout(() => {
+        window.history.replaceState({}, document.title, window.location.pathname);
+        showPage('dashboard');
+    }, 2000);
+}
+
+function showError(message) {
+    const errorElement = document.getElementById('errorMessage');
+    errorElement.querySelector('p').textContent = message;
+    errorElement.classList.remove('hidden');
+}
+
+// ===========================================
+// PAGE NAVIGATION
+// ===========================================
+
+function showPage(page) {
+    // Hide all pages
+    document.getElementById('loginPage').classList.add('hidden');
+    document.getElementById('tokenPage').classList.add('hidden');
+    document.getElementById('dashboardPage').classList.add('hidden');
+    document.getElementById('placeOrdersPage').classList.add('hidden');
+    document.getElementById('strategiesPage').classList.add('hidden');
+    document.getElementById('managePositionsPage').classList.add('hidden');
+    document.getElementById('chartMonitorPage').classList.add('hidden');
+    document.getElementById('sidebar').classList.add('hidden');
+    document.getElementById('profileSection').classList.add('hidden');
+
+    switch(page) {
+        case 'login':
+            document.getElementById('loginPage').classList.remove('hidden');
+            break;
+        case 'token':
+            document.getElementById('tokenPage').classList.remove('hidden');
+            break;
+        case 'dashboard':
+            document.getElementById('dashboardPage').classList.remove('hidden');
+            document.getElementById('sidebar').classList.remove('hidden');
+            document.getElementById('profileSection').classList.remove('hidden');
+            state.currentPage = 'dashboard';
+            updateActiveMenuItem('dashboard');
+            break;
+        case 'place-orders':
+            document.getElementById('placeOrdersPage').classList.remove('hidden');
+            document.getElementById('sidebar').classList.remove('hidden');
+            document.getElementById('profileSection').classList.remove('hidden');
+            state.currentPage = 'place-orders';
+            updateActiveMenuItem('place-orders');
+            break;
+        case 'strategies':
+            document.getElementById('strategiesPage').classList.remove('hidden');
+            document.getElementById('sidebar').classList.remove('hidden');
+            document.getElementById('profileSection').classList.remove('hidden');
+            state.currentPage = 'strategies';
+            updateActiveMenuItem('strategies');
+            break;
+        case 'manage-positions':
+            document.getElementById('managePositionsPage').classList.remove('hidden');
+            document.getElementById('sidebar').classList.remove('hidden');
+            document.getElementById('profileSection').classList.remove('hidden');
+            state.currentPage = 'manage-positions';
+            updateActiveMenuItem('manage-positions');
+            loadPositions();
+            break;
+        case 'chart-monitor':
+            document.getElementById('chartMonitorPage').classList.remove('hidden');
+            document.getElementById('sidebar').classList.remove('hidden');
+            document.getElementById('profileSection').classList.remove('hidden');
+            state.currentPage = 'chart-monitor';
+            updateActiveMenuItem('chart-monitor');
+            break;
+    }
+}
+
+function updateActiveMenuItem(page) {
+    document.querySelectorAll('.menu-item').forEach(item => {
+        item.classList.remove('active');
+        if (item.dataset.page === page) {
+            item.classList.add('active');
+        }
+    });
+}
+
+// ===========================================
+// EVENT LISTENERS SETUP
+// ===========================================
+
+function setupEventListeners() {
+    // Credentials form
+    document.getElementById('credentialsForm').addEventListener('submit', handleCredentialsSubmit);
+    
+    // Menu items
+    document.querySelectorAll('.menu-item').forEach(item => {
+        item.addEventListener('click', () => showPage(item.dataset.page));
+    });
+    
+    // Profile dropdown
+    const profileBtn = document.getElementById('profileBtn');
+    const profileMenu = document.getElementById('profileMenu');
+    
+    profileBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        profileMenu.classList.toggle('hidden');
+    });
+    
+    document.addEventListener('click', () => {
+        profileMenu?.classList.add('hidden');
+    });
+    
+    // Logout
+    document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+    
+    // Place Orders page
+    setupPlaceOrdersListeners();
+    
+    // Manage Positions page
+    setupManagePositionsListeners();
+    
+    // Chart Monitor page
+    setupChartMonitorListeners();
+    
+    // Strike Selection Page
+     setupStrategiesListeners();
+}
+
+function handleCredentialsSubmit(e) {
+    e.preventDefault();
+    const apiKey = document.getElementById('apiKey').value.trim();
+    const apiSecret = document.getElementById('apiSecret').value.trim();
+
+    if (!apiKey || !apiSecret) {
+        showError('Please enter both API Key and API Secret');
         return;
     }
-    
-    // Clear basket when opening new deployment
-    strategyBasket = [];
-    deployedOrderIds = [];
-    showDeploymentModal('bullish', data);
+
+    state.apiKey = apiKey;
+    state.apiSecret = apiSecret;
+
+    sessionStorage.setItem('api_key', apiKey);
+    sessionStorage.setItem('api_secret', apiSecret);
+
+    const kiteAuthUrl = `https://kite.zerodha.com/connect/login?api_key=${apiKey}&v=3`;
+    window.location.href = kiteAuthUrl;
 }
 
-/**
- * Open deployment modal for Bearish strategy
- */
-function openBearishDeployment() {
-    const data = selectedStrategyData.bearish;
-    if (!data || !data.future || !data.hedge) {
-        alert('Please find instruments first');
-        return;
+function handleLogout() {
+    sessionStorage.clear();
+    state = {
+        apiKey: '',
+        apiSecret: '',
+        accessToken: '',
+        userId: '',
+        profile: null,
+        currentPage: 'dashboard',
+        orderBasket: [],
+        placedOrders: [],
+        selectedPosition: null,
+        monitorInterval: null,
+        monitorRunning: false
+    };
+    if (state.monitorInterval) {
+        clearInterval(state.monitorInterval);
     }
-    
-    strategyBasket = [];
-    deployedOrderIds = [];
-    showDeploymentModal('bearish', data);
+    window.history.replaceState({}, document.title, window.location.pathname);
+    showPage('login');
 }
 
-/**
- * Show deployment modal with order panels and basket - 40% SMALLER
- */
-function showDeploymentModal(strategyType, data) {
-    const modal = document.createElement('div');
-    modal.id = 'deploymentModal';
-    modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
-    modal.style.animation = 'fadeIn 0.3s ease-out';
-    
-    const futureTransactionType = strategyType === 'bullish' ? 'BUY' : 'SELL';
-    const hedgeTransactionType = 'BUY';
-    
-    const strategyTitle = strategyType === 'bullish' ? 'Bullish Future Spread' : 'Bearish Future Spread';
-    const strategyColor = strategyType === 'bullish' ? 'green' : 'red';
-    
-    // 40% SMALLER: Reduced max-width from 6xl to 4xl, reduced padding
-    modal.innerHTML = `
-        <div class="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <!-- Header - COMPACT -->
-            <div class="bg-gradient-to-r from-${strategyColor}-50 to-${strategyColor}-100 p-3 border-b-2 border-gray-200 sticky top-0 z-10">
-                <div class="flex items-center justify-between">
-                    <h2 class="text-lg font-bold text-gray-900">🚀 Deploy ${strategyTitle}</h2>
-                    <button onclick="closeDeploymentModal()" class="text-gray-600 hover:text-gray-900 transition-colors">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-            
-            <div class="p-3">
-                <!-- Order Panels - COMPACT -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3">
-                    
-                    <!-- Future Order Panel - COMPACT -->
-                    <div class="border-2 border-blue-200 rounded-lg p-2 bg-blue-50">
-                        <h3 class="text-sm font-bold text-blue-900 mb-2 flex items-center gap-1">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
-                            </svg>
-                            Future Order
-                        </h3>
-                        
-                        <div class="mb-2">
-                            <label class="block text-xs font-semibold text-gray-700 mb-1">Symbol</label>
-                            <div class="bg-white border border-gray-300 rounded px-2 py-1 font-mono text-xs">
-                                ${data.future.symbol}
-                            </div>
-                        </div>
-                        
-                        <div class="mb-2">
-                            <label class="block text-xs font-semibold text-gray-700 mb-1">Type</label>
-                            <div class="bg-${futureTransactionType === 'BUY' ? 'green' : 'red'}-100 border border-${futureTransactionType === 'BUY' ? 'green' : 'red'}-300 rounded px-2 py-1 font-bold text-${futureTransactionType === 'BUY' ? 'green' : 'red'}-700 text-xs">
-                                ${futureTransactionType}
-                            </div>
-                        </div>
-                        
-                        <div class="mb-2">
-                            <label class="block text-xs font-semibold text-gray-700 mb-1">Lots</label>
-                            <input type="number" id="futureLots" value="1" min="1" 
-                                   class="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:border-blue-500">
-                        </div>
-                        
-                        <div class="mb-2">
-                            <label class="block text-xs font-semibold text-gray-700 mb-1">Order Type</label>
-                            <select id="futureOrderType" class="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:border-blue-500">
-                                <option value="MARKET">MARKET</option>
-                                <option value="LIMIT">LIMIT</option>
-                                <option value="SL">SL</option>
-                                <option value="SL-M">SL-M</option>
-                            </select>
-                        </div>
-                        
-                        <div id="futurePriceFields" class="hidden">
-                            <div id="futureLimitPriceField" class="mb-2 hidden">
-                                <label class="block text-xs font-semibold text-gray-700 mb-1">Price</label>
-                                <input type="number" id="futurePrice" step="0.05" placeholder="0.00"
-                                       class="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:border-blue-500">
-                            </div>
-                            <div id="futureTriggerPriceField" class="mb-2 hidden">
-                                <label class="block text-xs font-semibold text-gray-700 mb-1">Trigger</label>
-                                <input type="number" id="futureTriggerPrice" step="0.05" placeholder="0.00"
-                                       class="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:border-blue-500">
-                            </div>
-                        </div>
-                        
-                        <div class="mb-2">
-                            <label class="block text-xs font-semibold text-gray-700 mb-1">Product</label>
-                            <select id="futureProduct" class="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:border-blue-500">
-                                <option value="MIS">MIS</option>
-                                <option value="NRML">NRML</option>
-                                <option value="CNC">CNC</option>
-                            </select>
-                        </div>
-                        
-                        <!-- Add to Basket Button - COMPACT -->
-                        <button onclick="addFutureToBasket('${strategyType}')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 rounded text-xs transition-colors flex items-center justify-center gap-1">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                            </svg>
-                            Add Future
-                        </button>
-                    </div>
-                    
-                    <!-- Hedge Order Panel - COMPACT -->
-                    <div class="border-2 border-${strategyColor}-200 rounded-lg p-2 bg-${strategyColor}-50">
-                        <h3 class="text-sm font-bold text-${strategyColor}-900 mb-2 flex items-center gap-1">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-                            </svg>
-                            Hedge (${strategyType === 'bullish' ? 'PUT' : 'CALL'})
-                        </h3>
-                        
-                        <div class="mb-2">
-                            <label class="block text-xs font-semibold text-gray-700 mb-1">Symbol</label>
-                            <div class="bg-white border border-gray-300 rounded px-2 py-1 font-mono text-xs">
-                                ${data.hedge.symbol}
-                            </div>
-                        </div>
-                        
-                        <div class="mb-2">
-                            <label class="block text-xs font-semibold text-gray-700 mb-1">Type</label>
-                            <div class="bg-green-100 border border-green-300 rounded px-2 py-1 font-bold text-green-700 text-xs">
-                                BUY
-                            </div>
-                        </div>
-                        
-                        <div class="mb-2">
-                            <label class="block text-xs font-semibold text-gray-700 mb-1">Lots</label>
-                            <input type="number" id="hedgeLots" value="1" min="1" 
-                                   class="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:border-${strategyColor}-500">
-                        </div>
-                        
-                        <div class="mb-2">
-                            <label class="block text-xs font-semibold text-gray-700 mb-1">Order Type</label>
-                            <select id="hedgeOrderType" class="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:border-${strategyColor}-500">
-                                <option value="MARKET">MARKET</option>
-                                <option value="LIMIT">LIMIT</option>
-                                <option value="SL">SL</option>
-                                <option value="SL-M">SL-M</option>
-                            </select>
-                        </div>
-                        
-                        <div id="hedgePriceFields" class="hidden">
-                            <div id="hedgeLimitPriceField" class="mb-2 hidden">
-                                <label class="block text-xs font-semibold text-gray-700 mb-1">Price</label>
-                                <input type="number" id="hedgePrice" step="0.05" placeholder="0.00"
-                                       class="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:border-${strategyColor}-500">
-                            </div>
-                            <div id="hedgeTriggerPriceField" class="mb-2 hidden">
-                                <label class="block text-xs font-semibold text-gray-700 mb-1">Trigger</label>
-                                <input type="number" id="hedgeTriggerPrice" step="0.05" placeholder="0.00"
-                                       class="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:border-${strategyColor}-500">
-                            </div>
-                        </div>
-                        
-                        <div class="mb-2">
-                            <label class="block text-xs font-semibold text-gray-700 mb-1">Product</label>
-                            <select id="hedgeProduct" class="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:border-${strategyColor}-500">
-                                <option value="MIS">MIS</option>
-                                <option value="NRML">NRML</option>
-                                <option value="CNC">CNC</option>
-                            </select>
-                        </div>
-                        
-                        <!-- Add to Basket Button - COMPACT -->
-                        <button onclick="addHedgeToBasket('${strategyType}')" class="w-full bg-${strategyColor}-600 hover:bg-${strategyColor}-700 text-white font-semibold py-1.5 rounded text-xs transition-colors flex items-center justify-center gap-1">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                            </svg>
-                            Add Hedge
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- Order Basket Display - COMPACT -->
-                <div id="orderBasketDisplay" class="mb-3 hidden">
-                    <div class="bg-orange-50 border border-orange-200 rounded-lg p-2">
-                        <div class="flex items-center justify-between mb-2">
-                            <h3 class="text-sm font-bold text-orange-900 flex items-center gap-1">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
-                                </svg>
-                                Basket
-                                <span id="basketCount" class="bg-orange-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">0</span>
-                            </h3>
-                            <button onclick="clearBasket()" class="text-red-600 hover:text-red-700 font-semibold text-xs flex items-center gap-1">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                                </svg>
-                                Clear
-                            </button>
-                        </div>
-                        <div id="basketItems" class="space-y-1.5">
-                            <!-- Basket items will be inserted here -->
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Margin Check Result - COMPACT -->
-                <div id="marginCheckResult" class="mb-3 hidden"></div>
-                
-                <!-- Action Buttons - COMPACT -->
-                <div class="flex gap-2">
-                    <button onclick="checkBasketMargin()" class="flex-1 border border-blue-500 text-blue-600 font-semibold py-1.5 rounded text-xs hover:bg-blue-50 transition-colors flex items-center justify-center gap-1">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                        Check Margin
-                    </button>
-                    <button onclick="deployBasket()" class="flex-1 bg-${strategyColor}-600 hover:bg-${strategyColor}-700 text-white font-semibold py-1.5 rounded text-xs transition-colors flex items-center justify-center gap-1">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                        </svg>
-                        Deploy
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(modal);
-    
-    setupOrderTypeDependencies('future');
-    setupOrderTypeDependencies('hedge');
-}
+// ===========================================
+// PLACE ORDERS PAGE
+// ===========================================
 
-/**
- * Setup order type dependencies
- */
-function setupOrderTypeDependencies(prefix) {
-    const orderTypeSelect = document.getElementById(`${prefix}OrderType`);
-    const priceFields = document.getElementById(`${prefix}PriceFields`);
-    const limitPriceField = document.getElementById(`${prefix}LimitPriceField`);
-    const triggerPriceField = document.getElementById(`${prefix}TriggerPriceField`);
+function setupPlaceOrdersListeners() {
+    // Buy/Sell buttons
+    const buyBtn = document.getElementById('buyBtn');
+    const sellBtn = document.getElementById('sellBtn');
+    let selectedSide = 'BUY';
     
-    if (!orderTypeSelect) return;
+    buyBtn.addEventListener('click', () => {
+        selectedSide = 'BUY';
+        buyBtn.classList.add('bg-green-500', 'text-white');
+        buyBtn.classList.remove('bg-white', 'text-gray-700');
+        sellBtn.classList.remove('bg-red-500', 'text-white');
+        sellBtn.classList.add('bg-white', 'text-gray-700');
+    });
     
-    orderTypeSelect.addEventListener('change', (e) => {
+    sellBtn.addEventListener('click', () => {
+        selectedSide = 'SELL';
+        sellBtn.classList.add('bg-red-500', 'text-white');
+        sellBtn.classList.remove('bg-white', 'text-gray-700');
+        buyBtn.classList.remove('bg-green-500', 'text-white');
+        buyBtn.classList.add('bg-white', 'text-gray-700');
+    });
+    setupSymbolAutocomplete();
+    
+    // Order type change - show/hide price fields
+    document.getElementById('orderType').addEventListener('change', (e) => {
         const orderType = e.target.value;
+        const priceFields = document.getElementById('priceFields');
+        const limitPriceField = document.getElementById('limitPriceField');
+        const triggerPriceField = document.getElementById('triggerPriceField');
         
         if (orderType === 'MARKET') {
             priceFields.classList.add('hidden');
@@ -429,405 +371,969 @@ function setupOrderTypeDependencies(prefix) {
             triggerPriceField.classList.remove('hidden');
         }
     });
+    
+    // Add to basket
+    document.getElementById('addOrderBtn').addEventListener('click', () => {
+        const order = {
+            tradingsymbol: document.getElementById('orderSymbol').value.trim().toUpperCase(),
+            exchange: document.getElementById('orderExchange').value,
+            quantity: parseInt(document.getElementById('orderQuantity').value),
+            transaction_type: selectedSide,
+            order_type: document.getElementById('orderType').value,
+            product: document.getElementById('orderProduct').value,
+            variety: 'regular'
+        };
+        
+        if (!order.tradingsymbol) {
+            alert('Please enter a trading symbol');
+            return;
+        }
+        
+        if (order.order_type === 'LIMIT' || order.order_type === 'SL') {
+            const price = parseFloat(document.getElementById('orderPrice').value);
+            if (price) order.price = price;
+        }
+        
+        if (order.order_type === 'SL' || order.order_type === 'SL-M') {
+            const triggerPrice = parseFloat(document.getElementById('orderTriggerPrice').value);
+            if (triggerPrice) order.trigger_price = triggerPrice;
+        }
+        
+        state.orderBasket.push(order);
+        displayOrderBasket();
+        
+        // Clear form
+        document.getElementById('orderSymbol').value = '';
+    });
+    
+    // Clear basket
+    document.getElementById('clearBasketBtn').addEventListener('click', () => {
+        state.orderBasket = [];
+        state.placedOrders = [];
+        displayOrderBasket();
+        document.getElementById('orderStatusOutput').innerHTML = '';
+        document.getElementById('orderSummaryOutput').innerHTML = '';
+    });
+    
+    // Check margin
+    document.getElementById('checkMarginBtn').addEventListener('click', checkBasketMargin);
+    
+    // Place all orders
+    document.getElementById('placeAllOrdersBtn').addEventListener('click', placeAllOrders);
+    
+    // Refresh order status
+    document.getElementById('refreshOrderStatusBtn').addEventListener('click', refreshOrderStatus);
 }
 
-/**
- * Add future order to basket
- */
-function addFutureToBasket(strategyType) {
-    const data = selectedStrategyData[strategyType];
-    const futureTransactionType = strategyType === 'bullish' ? 'BUY' : 'SELL';
+function displayOrderBasket() {
+    const basketDiv = document.getElementById('orderBasket');
     
-    const order = {
-        type: 'future',
-        exchange: 'NFO',
-        tradingsymbol: data.future.symbol,
-        transaction_type: futureTransactionType,
-        lots: parseInt(document.getElementById('futureLots').value),
-        order_type: document.getElementById('futureOrderType').value,
-        product: document.getElementById('futureProduct').value,
-        variety: 'regular'
-    };
-    
-    if (order.order_type === 'LIMIT' || order.order_type === 'SL') {
-        const price = parseFloat(document.getElementById('futurePrice').value);
-        if (price) order.price = price;
-    }
-    
-    if (order.order_type === 'SL' || order.order_type === 'SL-M') {
-        const triggerPrice = parseFloat(document.getElementById('futureTriggerPrice').value);
-        if (triggerPrice) order.trigger_price = triggerPrice;
-    }
-    
-    strategyBasket.push(order);
-    updateBasketDisplay();
-    
-    console.log('Added to basket:', order);
-}
-
-/**
- * Add hedge order to basket
- */
-function addHedgeToBasket(strategyType) {
-    const data = selectedStrategyData[strategyType];
-    
-    const order = {
-        type: 'hedge',
-        exchange: 'NFO',
-        tradingsymbol: data.hedge.symbol,
-        transaction_type: 'BUY',
-        lots: parseInt(document.getElementById('hedgeLots').value),
-        order_type: document.getElementById('hedgeOrderType').value,
-        product: document.getElementById('hedgeProduct').value,
-        variety: 'regular'
-    };
-    
-    if (order.order_type === 'LIMIT' || order.order_type === 'SL') {
-        const price = parseFloat(document.getElementById('hedgePrice').value);
-        if (price) order.price = price;
-    }
-    
-    if (order.order_type === 'SL' || order.order_type === 'SL-M') {
-        const triggerPrice = parseFloat(document.getElementById('hedgeTriggerPrice').value);
-        if (triggerPrice) order.trigger_price = triggerPrice;
-    }
-    
-    strategyBasket.push(order);
-    updateBasketDisplay();
-    
-    console.log('Added to basket:', order);
-}
-
-/**
- * Update basket display - COMPACT VERSION
- */
-function updateBasketDisplay() {
-    const basketDisplay = document.getElementById('orderBasketDisplay');
-    const basketItems = document.getElementById('basketItems');
-    const basketCount = document.getElementById('basketCount');
-    
-    if (strategyBasket.length === 0) {
-        basketDisplay.classList.add('hidden');
+    if (state.orderBasket.length === 0) {
+        basketDiv.innerHTML = '<div class="text-center text-gray-500 py-8">No orders in basket</div>';
         return;
     }
     
-    basketDisplay.classList.remove('hidden');
-    basketCount.textContent = strategyBasket.length;
+    basketDiv.innerHTML = '';
     
-    basketItems.innerHTML = strategyBasket.map((order, index) => {
-        const sideColor = order.transaction_type === 'BUY' ? 'green' : 'red';
-        const typeColor = order.type === 'future' ? 'blue' : 'purple';
+    state.orderBasket.forEach((order, index) => {
+        const orderDiv = document.createElement('div');
+        orderDiv.className = 'order-basket-item';
+        
+        const sideClass = order.transaction_type === 'BUY' ? 'badge-buy' : 'badge-sell';
         
         let priceInfo = '';
         if (order.price) priceInfo += ` @ ₹${order.price.toFixed(2)}`;
-        if (order.trigger_price) priceInfo += ` (T: ₹${order.trigger_price.toFixed(2)})`;
+        if (order.trigger_price) priceInfo += ` (Trigger: ₹${order.trigger_price.toFixed(2)})`;
         
-        return `
-            <div class="flex items-center justify-between p-1.5 bg-white rounded border border-gray-200 text-xs">
-                <div class="flex items-center gap-1 flex-wrap">
-                    <span class="px-1 py-0.5 bg-${typeColor}-100 text-${typeColor}-700 font-bold rounded text-xs">
-                        ${order.type.toUpperCase()}
-                    </span>
-                    <span class="font-mono font-semibold">${order.tradingsymbol}</span>
-                    <span class="px-1 py-0.5 bg-${sideColor}-100 text-${sideColor}-700 font-bold rounded">
-                        ${order.transaction_type}
-                    </span>
-                    <span class="text-gray-600">${order.lots}L</span>
-                    <span class="px-1 py-0.5 bg-gray-100 text-gray-700 rounded">${order.order_type}</span>
-                    ${priceInfo ? `<span class="text-gray-600">${priceInfo}</span>` : ''}
+        orderDiv.innerHTML = `
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="badge badge-info">${order.exchange}</span>
+                    <span class="font-semibold mono">${order.tradingsymbol}</span>
+                    <span class="badge ${sideClass}">${order.transaction_type}</span>
+                    <span class="badge badge-info">${order.quantity}</span>
+                    <span class="badge badge-info">${order.order_type}</span>
+                    <span class="badge badge-info">${order.product}</span>
+                    ${priceInfo ? `<span class="text-sm text-gray-600">${priceInfo}</span>` : ''}
                 </div>
-                <button onclick="removeFromBasket(${index})" class="text-red-600 hover:text-red-700 transition-colors">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
+                <button onclick="removeFromBasket(${index})" class="text-red-600 hover:text-red-700 font-semibold">
+                    Remove
                 </button>
             </div>
         `;
-    }).join('');
-}
-
-/**
- * Remove order from basket
- */
-function removeFromBasket(index) {
-    strategyBasket.splice(index, 1);
-    updateBasketDisplay();
-    
-    // Clear margin result when basket changes
-    const marginResult = document.getElementById('marginCheckResult');
-    if (marginResult) {
-        marginResult.classList.add('hidden');
-    }
-}
-
-/**
- * Clear all orders from basket
- */
-function clearBasket() {
-    if (strategyBasket.length === 0) return;
-    
-    if (confirm('Clear all orders from basket?')) {
-        strategyBasket = [];
-        updateBasketDisplay();
         
-        const marginResult = document.getElementById('marginCheckResult');
-        if (marginResult) {
-            marginResult.classList.add('hidden');
-        }
-    }
+        basketDiv.appendChild(orderDiv);
+    });
 }
 
-/**
- * Check margin for basket - COMPACT VERSION
- */
+function removeFromBasket(index) {
+    state.orderBasket.splice(index, 1);
+    displayOrderBasket();
+}
+
 async function checkBasketMargin() {
-    if (strategyBasket.length === 0) {
-        alert('Basket is empty! Add orders first.');
+    if (state.orderBasket.length === 0) {
+        alert('No orders in basket');
         return;
     }
     
-    const resultDiv = document.getElementById('marginCheckResult');
-    resultDiv.innerHTML = '<div class="text-center py-2"><div class="inline-block w-4 h-4 border-3 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div></div>';
-    resultDiv.classList.remove('hidden');
-    
     try {
-        const response = await fetch(`${CONFIG.backendUrl}/api/strategy/check-basket-margin`, {
+        const response = await fetch(`${CONFIG.backendUrl}/api/basket-margin`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-User-ID': state.userId
             },
-            body: JSON.stringify({ orders: strategyBasket })
+            body: JSON.stringify({ orders: state.orderBasket })
         });
         
-        const marginData = await response.json();
+        const data = await response.json();
         
-        if (marginData.success) {
-            const sufficient = marginData.sufficient;
-            const color = sufficient ? 'green' : 'red';
-            
-            resultDiv.innerHTML = `
-                <div class="p-2 bg-${color}-50 border border-${color}-200 rounded-lg">
-                    <h4 class="font-bold text-${color}-900 mb-1.5 flex items-center gap-1 text-xs">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                        Margin Check
-                    </h4>
-                    <div class="grid grid-cols-3 gap-1.5 text-xs mb-1.5">
-                        <div class="bg-white rounded p-1.5 border border-${color}-200">
-                            <span class="text-gray-600 block text-xs">Available</span>
-                            <span class="font-bold">₹${marginData.available_balance.toLocaleString('en-IN', {maximumFractionDigits: 0})}</span>
+        if (data.success) {
+            const statusDiv = document.getElementById('orderStatusOutput');
+            statusDiv.innerHTML = `
+                <div class="p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
+                    <h3 class="font-bold text-gray-900 mb-2">Margin Check</h3>
+                    <div class="space-y-1 text-sm">
+                        <div class="flex justify-between">
+                            <span>Available Balance:</span>
+                            <span class="font-semibold">₹${data.available_balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                         </div>
-                        <div class="bg-white rounded p-1.5 border border-${color}-200">
-                            <span class="text-gray-600 block text-xs">Required</span>
-                            <span class="font-bold">₹${marginData.total_required.toLocaleString('en-IN', {maximumFractionDigits: 0})}</span>
+                        <div class="flex justify-between">
+                            <span>Required Margin:</span>
+                            <span class="font-semibold">₹${data.total_required.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                         </div>
-                        <div class="bg-white rounded p-1.5 border border-${color}-200">
-                            <span class="text-gray-600 block text-xs">Balance</span>
-                            <span class="font-bold">₹${(marginData.available_balance - marginData.total_required).toLocaleString('en-IN', {maximumFractionDigits: 0})}</span>
+                        <div class="flex justify-between pt-2 border-t">
+                            <span>Status:</span>
+                            <span class="font-bold ${data.sufficient ? 'text-green-600' : 'text-red-600'}">
+                                ${data.sufficient ? '✅ Sufficient Funds' : '⚠️ Insufficient Funds'}
+                            </span>
                         </div>
-                    </div>
-                    <div class="font-bold text-${color}-700 text-center py-1 text-xs">
-                        ${sufficient ? '✅ Sufficient' : '⚠️ Insufficient'}
                     </div>
                 </div>
             `;
-            
-            console.log('Margin Check:', marginData);
         } else {
-            throw new Error(marginData.error);
+            alert('Error checking margin: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error checking margin: ' + error.message);
+    }
+}
+
+async function placeAllOrders() {
+    if (state.orderBasket.length === 0) {
+        alert('No orders in basket');
+        return;
+    }
+    
+    const statusDiv = document.getElementById('orderStatusOutput');
+    statusDiv.innerHTML = '<div class="p-4 bg-blue-50 rounded-lg">🚀 Placing orders...</div>';
+    
+    try {
+        const response = await fetch(`${CONFIG.backendUrl}/api/place-basket-orders`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-ID': state.userId
+            },
+            body: JSON.stringify({ orders: state.orderBasket })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            state.placedOrders = data.results;
+            displayOrderResults(data.results);
+            
+            // Wait a bit then refresh status
+            setTimeout(refreshOrderStatus, 2000);
+        } else {
+            alert('Error placing orders: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error placing orders: ' + error.message);
+    }
+}
+
+function displayOrderResults(results) {
+    const statusDiv = document.getElementById('orderStatusOutput');
+    
+    let html = '<div class="space-y-2">';
+    
+    results.forEach(result => {
+        if (result.success) {
+            html += `
+                <div class="p-3 bg-green-50 border-2 border-green-200 rounded-lg">
+                    <div class="flex items-center gap-2">
+                        <span class="text-green-600">✅</span>
+                        <span class="font-semibold">${result.symbol}</span>
+                        <span class="text-sm text-gray-600">Order ID: ${result.order_id}</span>
+                    </div>
+                </div>
+            `;
+        } else {
+            html += `
+                <div class="p-3 bg-red-50 border-2 border-red-200 rounded-lg">
+                    <div class="flex items-center gap-2">
+                        <span class="text-red-600">❌</span>
+                        <span class="font-semibold">${result.symbol}</span>
+                        <span class="text-sm text-gray-600">${result.error}</span>
+                    </div>
+                </div>
+            `;
+        }
+    });
+    
+    html += '</div>';
+    statusDiv.innerHTML = html;
+}
+
+async function refreshOrderStatus() {
+    if (state.placedOrders.length === 0) {
+        return;
+    }
+    
+    const orderIds = state.placedOrders.filter(o => o.order_id).map(o => o.order_id);
+    
+    if (orderIds.length === 0) return;
+    
+    try {
+        const response = await fetch(`${CONFIG.backendUrl}/api/order-status`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-ID': state.userId
+            },
+            body: JSON.stringify({ order_ids: orderIds })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            displayOrderStatus(data.statuses);
+            generateExecutionSummary(data.statuses);
+        }
+    } catch (error) {
+        console.error('Error refreshing status:', error);
+    }
+}
+
+function displayOrderStatus(statuses) {
+    const statusDiv = document.getElementById('orderStatusOutput');
+    
+    let html = '<h3 class="font-bold text-gray-900 mb-3">Order Status</h3><div class="space-y-2">';
+    
+    statuses.forEach(status => {
+        if (status.error) {
+            html += `
+                <div class="p-3 bg-red-50 border-2 border-red-200 rounded-lg">
+                    <div class="text-sm">
+                        <span class="font-semibold">Order ${status.order_id}</span>
+                        <span class="text-red-600"> - Error: ${status.error}</span>
+                    </div>
+                </div>
+            `;
+            return;
         }
         
-    } catch (error) {
-        resultDiv.innerHTML = `
-            <div class="p-2 bg-red-50 border border-red-200 rounded-lg">
-                <p class="text-red-700 text-xs">❌ Error: ${error.message}</p>
+        let statusColor = 'gray';
+        let statusIcon = '❓';
+        
+        if (status.status === 'COMPLETE') {
+            statusColor = 'green';
+            statusIcon = '✅';
+        } else if (status.status === 'REJECTED') {
+            statusColor = 'red';
+            statusIcon = '❌';
+        } else if (status.status === 'CANCELLED') {
+            statusColor = 'orange';
+            statusIcon = '🚫';
+        } else if (status.status === 'OPEN' || status.status === 'TRIGGER PENDING') {
+            statusColor = 'blue';
+            statusIcon = '⏳';
+        }
+        
+        html += `
+            <div class="p-3 bg-${statusColor}-50 border-2 border-${statusColor}-200 rounded-lg">
+                <div class="text-sm">
+                    <span>${statusIcon}</span>
+                    <span class="font-semibold ml-2">${status.tradingsymbol}</span>
+                    <span class="text-gray-600"> (${status.order_id})</span>
+                    <span class="ml-2 font-semibold text-${statusColor}-600">${status.status}</span>
+                    ${status.status_message ? `<span class="text-gray-600"> - ${status.status_message}</span>` : ''}
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    statusDiv.innerHTML = html;
+}
+
+function generateExecutionSummary(statuses) {
+    const summaryDiv = document.getElementById('orderSummaryOutput');
+    
+    // Group by symbol
+    const symbolData = {};
+    
+    statuses.forEach(status => {
+        if (status.error) return;
+        
+        const symbol = status.tradingsymbol;
+        if (!symbolData[symbol]) {
+            symbolData[symbol] = {
+                filled_qty: 0,
+                total_amount: 0,
+                orders: 0
+            };
+        }
+        
+        symbolData[symbol].filled_qty += status.filled_quantity || 0;
+        if (status.filled_quantity && status.average_price) {
+            symbolData[symbol].total_amount += status.filled_quantity * status.average_price;
+        }
+        symbolData[symbol].orders += 1;
+    });
+    
+    let html = '<h3 class="font-bold text-gray-900 mb-3">Execution Summary</h3><div class="space-y-3">';
+    
+    for (const [symbol, data] of Object.entries(symbolData)) {
+        const avgPrice = data.filled_qty > 0 ? data.total_amount / data.filled_qty : 0;
+        
+        html += `
+            <div class="p-4 bg-gray-50 border-2 border-gray-200 rounded-lg">
+                <h4 class="font-bold text-gray-900 mb-2">${symbol}</h4>
+                <div class="grid grid-cols-2 gap-2 text-sm">
+                    <div>Executed Qty: <span class="font-semibold">${data.filled_qty}</span></div>
+                    <div>Avg Price: <span class="font-semibold">₹${avgPrice.toFixed(2)}</span></div>
+                    <div>Total Amount: <span class="font-semibold">₹${data.total_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
+                    <div>Orders: <span class="font-semibold">${data.orders}</span></div>
+                </div>
             </div>
         `;
     }
+    
+    html += '</div>';
+    summaryDiv.innerHTML = html;
+}
+
+// =========================================================
+// STRATEGIES PAGE FUNCTIONALITY
+// Add this code to your app.js file
+// =========================================================
+
+/**
+ * Setup event listeners for strategies page
+ * Call this from your main setup function
+ */
+function setupStrategiesListeners() {
+    document.getElementById('executeBullishBtn')?.addEventListener('click', executeBullishStrategy);
+    document.getElementById('executeBearishBtn')?.addEventListener('click', executeBearishStrategy);
 }
 
 /**
- * Get status badge HTML
+ * Execute Bullish Future Spread Strategy
  */
-function getStatusBadge(status) {
-    const statusConfig = {
-        'COMPLETE': { color: 'green', icon: '✅', text: 'COMPLETE' },
-        'OPEN': { color: 'blue', icon: '⏳', text: 'OPEN' },
-        'PENDING': { color: 'yellow', icon: '⏱️', text: 'PENDING' },
-        'TRIGGER PENDING': { color: 'orange', icon: '⏱️', text: 'TRIGGER PENDING' },
-        'CANCELLED': { color: 'gray', icon: '❌', text: 'CANCELLED' },
-        'REJECTED': { color: 'red', icon: '🚫', text: 'REJECTED' },
-        'FAILED': { color: 'red', icon: '❌', text: 'FAILED' },
-        'UNKNOWN': { color: 'gray', icon: '❓', text: 'UNKNOWN' }
-    };
+async function executeBullishStrategy() {
+    const button = document.getElementById('executeBullishBtn');
+    const loading = document.getElementById('bullishLoading');
+    const results = document.getElementById('bullishResults');
     
-    const config = statusConfig[status] || statusConfig['UNKNOWN'];
+    const lowerPremium = parseFloat(document.getElementById('lowerPremium').value);
+    const upperPremium = parseFloat(document.getElementById('upperPremium').value);
     
-    return `
-        <span class="px-1.5 py-0.5 bg-${config.color}-100 text-${config.color}-700 text-xs font-bold rounded-full">
-            ${config.icon} ${config.text}
-        </span>
-    `;
-}
-
-/**
- * Deploy basket orders with status tracking - ULTRA COMPACT VERSION
- */
-async function deployBasket() {
-    if (strategyBasket.length === 0) {
-        showDeploymentStatus('error', 'Basket is empty! Add orders first.');
+    // Validation
+    if (lowerPremium >= upperPremium) {
+        alert('Lower premium must be less than upper premium');
         return;
     }
     
-    // Show loading state
-    const deployBtn = document.querySelector('button[onclick="deployBasket()"]');
-    const originalHTML = deployBtn.innerHTML;
-    deployBtn.disabled = true;
-    deployBtn.innerHTML = `
-        <div class="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-        <span>Deploying...</span>
-    `;
+    // Show loading
+    button.classList.add('hidden');
+    loading.classList.remove('hidden');
+    results.classList.add('hidden');
     
     try {
-        const response = await fetch(`${CONFIG.backendUrl}/api/strategy/deploy-basket`, {
+        const response = await fetch(`${CONFIG.backendUrl}/api/strategy/bullish-future-spread`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-User-ID': state.userId
             },
-            body: JSON.stringify({ orders: strategyBasket })
+            body: JSON.stringify({
+                lower_premium: lowerPremium,
+                upper_premium: upperPremium
+            })
         });
         
-        const result = await response.json();
+        const data = await response.json();
         
-        if (result.success) {
-            // Build ULTRA COMPACT status display
-            let statusHTML = `
-                <div class="bg-gradient-to-br from-green-50 to-blue-50 p-2 rounded-lg border border-green-200">
-                    <h4 class="text-xs font-bold text-gray-900 mb-1.5 flex items-center gap-1">
-                        <svg class="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                        Order Status
-                    </h4>
-                    
-                    <!-- Ultra Compact Summary -->
-                    <div class="grid grid-cols-3 gap-1 mb-2">
-                        <div class="bg-white rounded p-1 border border-gray-200 text-center">
-                            <div class="text-sm font-bold text-gray-900">${result.total_orders}</div>
-                            <div class="text-xs text-gray-600">Total</div>
-                        </div>
-                        <div class="bg-green-100 rounded p-1 border border-green-300 text-center">
-                            <div class="text-sm font-bold text-green-700">${result.successful}</div>
-                            <div class="text-xs text-green-700">Success</div>
-                        </div>
-                        <div class="bg-red-100 rounded p-1 border border-red-300 text-center">
-                            <div class="text-sm font-bold text-red-700">${result.failed}</div>
-                            <div class="text-xs text-red-700">Failed</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Compact Order Details -->
-                    <div class="space-y-1">
-            `;
+        if (data.success) {
+            displayBullishResults(data);
             
-            result.results.forEach((r, index) => {
-                if (r.success) {
-                    deployedOrderIds.push(r.order_id);
-                    const statusBadge = getStatusBadge(r.status);
-                    
-                    statusHTML += `
-                        <div class="bg-white rounded p-1.5 border border-gray-200">
-                            <div class="flex items-center justify-between text-xs">
-                                <div class="flex-1">
-                                    <div class="flex items-center gap-1 mb-0.5">
-                                        <span class="font-mono font-semibold">${r.symbol}</span>
-                                        ${statusBadge}
-                                    </div>
-                                    <div class="text-xs text-gray-600">
-                                        ID: ${r.order_id} • ${r.lots}L
-                                        ${r.filled_quantity > 0 ? ` • Filled: ${r.filled_quantity}` : ''}
-                                        ${r.average_price > 0 ? ` • ₹${r.average_price.toFixed(2)}` : ''}
-                                    </div>
-                                </div>
-                                <button onclick="refreshOrderStatus('${r.order_id}')" 
-                                        class="ml-1 p-0.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                                        title="Refresh">
-                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    statusHTML += `
-                        <div class="bg-red-50 rounded p-1.5 border border-red-200">
-                            <div class="flex items-center gap-1 mb-0.5 text-xs">
-                                <span class="font-mono font-semibold">${r.symbol}</span>
-                                ${getStatusBadge('FAILED')}
-                            </div>
-                            <div class="text-xs text-red-700">❌ ${r.error}</div>
-                        </div>
-                    `;
-                }
-            });
-            
-            statusHTML += `
-                    </div>
-                    
-                    <!-- Ultra Compact Action Buttons -->
-                    <div class="flex gap-1 mt-2">
-                        <button onclick="refreshAllOrderStatuses()" 
-                                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1 px-1 rounded transition-colors flex items-center justify-center gap-0.5 text-xs">
-                            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                            </svg>
-                            Refresh
-                        </button>
-                        <button onclick="clearDeploymentStatus()" 
-                                class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-1 px-1 rounded transition-colors text-xs">
-                            Deploy More
-                        </button>
-                        <button onclick="closeDeploymentModal()" 
-                                class="flex-1 border border-gray-400 text-gray-700 hover:bg-gray-100 font-semibold py-1 px-1 rounded transition-colors text-xs">
-                            Close
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            showDeploymentStatus('success', statusHTML);
-            
-            // Clear basket and re-enable button
-            strategyBasket = [];
-            updateBasketDisplay();
-            deployBtn.disabled = false;
-            deployBtn.innerHTML = originalHTML;
-            
-            // Silent console log
-            console.log('✅ Deployment completed:', result.results);
-            
+            // Log to console for debugging
+            console.log('=== BULLISH FUTURE SPREAD ===');
+            console.log('Future:', data.future);
+            console.log('Hedge:', data.hedge);
+            console.log('============================');
         } else {
-            throw new Error(result.error);
+            throw new Error(data.error || 'Failed to execute strategy');
         }
         
     } catch (error) {
-        showDeploymentStatus('error', `Error deploying orders: ${error.message}`);
-        deployBtn.disabled = false;
-        deployBtn.innerHTML = originalHTML;
-        console.error('❌ Deployment error:', error);
+        console.error('Strategy error:', error);
+        alert('Error executing strategy: ' + error.message);
+    } finally {
+        button.classList.remove('hidden');
+        loading.classList.add('hidden');
     }
 }
 
 /**
- * Refresh status for a single order
+ * Execute Bearish Future Spread Strategy
  */
-async function refreshOrderStatus(orderId) {
+async function executeBearishStrategy() {
+    const button = document.getElementById('executeBearishBtn');
+    const loading = document.getElementById('bearishLoading');
+    const results = document.getElementById('bearishResults');
+    
+    const lowerPremium = parseFloat(document.getElementById('lowerPremium').value);
+    const upperPremium = parseFloat(document.getElementById('upperPremium').value);
+    
+    // Validation
+    if (lowerPremium >= upperPremium) {
+        alert('Lower premium must be less than upper premium');
+        return;
+    }
+    
+    // Show loading
+    button.classList.add('hidden');
+    loading.classList.remove('hidden');
+    results.classList.add('hidden');
+    
     try {
-        const response = await fetch(`${CONFIG.backendUrl}/api/order-status/${orderId}`, {
+        const response = await fetch(`${CONFIG.backendUrl}/api/strategy/bearish-future-spread`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-ID': state.userId
+            },
+            body: JSON.stringify({
+                lower_premium: lowerPremium,
+                upper_premium: upperPremium
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            displayBearishResults(data);
+            
+            // Log to console for debugging
+            console.log('=== BEARISH FUTURE SPREAD ===');
+            console.log('Future:', data.future);
+            console.log('Hedge:', data.hedge);
+            console.log('=============================');
+        } else {
+            throw new Error(data.error || 'Failed to execute strategy');
+        }
+        
+    } catch (error) {
+        console.error('Strategy error:', error);
+        alert('Error executing strategy: ' + error.message);
+    } finally {
+        button.classList.remove('hidden');
+        loading.classList.add('hidden');
+    }
+}
+
+/**
+ * Display Bullish Strategy Results
+ */
+function displayBullishResults(data) {
+    const results = document.getElementById('bullishResults');
+    
+    // Update Future details
+    if (data.future) {
+        document.getElementById('bullishFutureSymbol').textContent = data.future.symbol;
+        document.getElementById('bullishFutureToken').textContent = data.future.token;
+        document.getElementById('bullishFuturePrice').textContent = data.future.last_price ? 
+            data.future.last_price.toFixed(2) : '-';
+    }
+    
+    // Update Hedge details
+    if (data.hedge) {
+        document.getElementById('bullishHedgeSymbol').textContent = data.hedge.symbol;
+        document.getElementById('bullishHedgeToken').textContent = data.hedge.token;
+        document.getElementById('bullishHedgePrice').textContent = data.hedge.last_price ? 
+            data.hedge.last_price.toFixed(2) : '-';
+    }
+    
+    // Show results
+    results.classList.remove('hidden');
+    
+    // Add animation
+    results.style.animation = 'fadeIn 0.5s ease-out';
+}
+
+/**
+ * Display Bearish Strategy Results
+ */
+function displayBearishResults(data) {
+    const results = document.getElementById('bearishResults');
+    
+    // Update Future details
+    if (data.future) {
+        document.getElementById('bearishFutureSymbol').textContent = data.future.symbol;
+        document.getElementById('bearishFutureToken').textContent = data.future.token;
+        document.getElementById('bearishFuturePrice').textContent = data.future.last_price ? 
+            data.future.last_price.toFixed(2) : '-';
+    }
+    
+    // Update Hedge details
+    if (data.hedge) {
+        document.getElementById('bearishHedgeSymbol').textContent = data.hedge.symbol;
+        document.getElementById('bearishHedgeToken').textContent = data.hedge.token;
+        document.getElementById('bearishHedgePrice').textContent = data.hedge.last_price ? 
+            data.hedge.last_price.toFixed(2) : '-';
+    }
+    
+    // Show results
+    results.classList.remove('hidden');
+    
+    // Add animation
+    results.style.animation = 'fadeIn 0.5s ease-out';
+}
+
+// =========================================================
+// IMPORTANT: Call this in your setupEventListeners() function
+// Add this line:
+// setupStrategiesListeners();
+// =========================================================
+
+// ===========================================
+// MANAGE POSITIONS PAGE
+// ===========================================
+
+function setupManagePositionsListeners() {
+    document.getElementById('refreshPositionsBtn').addEventListener('click', loadPositions);
+    document.getElementById('trailSlBtn')?.addEventListener('click', showTrailSlConfig);
+    document.getElementById('exitImmediatelyBtn')?.addEventListener('click', exitPositionImmediately);
+}
+
+async function loadPositions() {
+    const positionsList = document.getElementById('positionsList');
+    positionsList.innerHTML = '<div class="text-center text-gray-500 py-8">Loading positions...</div>';
+    
+    try {
+        const response = await fetch(`${CONFIG.backendUrl}/api/positions`, {
+            headers: { 'X-User-ID': state.userId }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            displayPositions(data.positions);
+        } else {
+            positionsList.innerHTML = '<div class="text-center text-gray-500 py-8">Error loading positions</div>';
+        }
+    } catch (error) {
+        positionsList.innerHTML = '<div class="text-center text-gray-500 py-8">Error loading positions</div>';
+    }
+}
+
+function displayPositions(positions) {
+    const positionsList = document.getElementById('positionsList');
+    
+    if (positions.length === 0) {
+        positionsList.innerHTML = '<div class="text-center text-gray-500 py-8">No open positions</div>';
+        return;
+    }
+    
+    positionsList.innerHTML = '';
+    
+    positions.forEach(position => {
+        const positionCard = document.createElement('div');
+        positionCard.className = 'position-card';
+        
+        const isLong = position.quantity > 0;
+        const sideColor = isLong ? 'text-green-600' : 'text-red-600';
+        const side = isLong ? 'LONG' : 'SHORT';
+        
+        positionCard.innerHTML = `
+            <div class="flex items-center justify-between">
+                <div>
+                    <div class="font-bold text-lg">
+                        <span class="mono">${position.exchange}:${position.tradingsymbol}</span>
+                    </div>
+                    <div class="text-sm text-gray-600 mt-1">
+                        <span class="${sideColor} font-semibold">${side} ${Math.abs(position.quantity)}</span>
+                        <span class="mx-2">@</span>
+                        <span>₹${position.average_price.toFixed(2)}</span>
+                        <span class="ml-3 badge badge-info">${position.product}</span>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm text-gray-600">P&L</div>
+                    <div class="font-bold text-lg ${position.pnl >= 0 ? 'text-green-600' : 'text-red-600'}">
+                        ${position.pnl >= 0 ? '+' : ''}₹${position.pnl.toFixed(2)}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        positionCard.addEventListener('click', () => selectPosition(position));
+        
+        positionsList.appendChild(positionCard);
+    });
+}
+
+function selectPosition(position) {
+    state.selectedPosition = position;
+    
+    // Update UI
+    document.querySelectorAll('.position-card').forEach(card => {
+        card.classList.remove('selected');
+    });
+    event.currentTarget.classList.add('selected');
+    
+    // Show actions panel
+    const actionsPanel = document.getElementById('positionActionsPanel');
+    actionsPanel.classList.remove('hidden');
+    
+    const isLong = position.quantity > 0;
+    const sideColor = isLong ? 'text-green-600' : 'text-red-600';
+    const side = isLong ? 'LONG' : 'SHORT';
+    
+    const selectedInfo = document.getElementById('selectedPositionInfo');
+    selectedInfo.innerHTML = `
+        <div class="p-4 bg-yellow-50 rounded-lg">
+            <div class="font-bold text-lg">
+                ${position.exchange}:${position.tradingsymbol}
+            </div>
+            <div class="mt-2 text-sm">
+                <span class="${sideColor} font-semibold">${side} ${Math.abs(position.quantity)}</span>
+                <span class="mx-2">@</span>
+                <span>₹${position.average_price.toFixed(2)}</span>
+                <span class="ml-3 badge badge-info">${position.product}</span>
+            </div>
+        </div>
+    `;
+    
+    // Hide trailing config
+    document.getElementById('trailSlConfig').classList.add('hidden');
+    document.getElementById('trailStatus').classList.add('hidden');
+}
+
+function showTrailSlConfig() {
+    if (!state.selectedPosition) return;
+    
+    const configDiv = document.getElementById('trailSlConfig');
+    const contentDiv = document.getElementById('trailConfigContent');
+    
+    const isLong = state.selectedPosition.quantity > 0;
+    const avgPrice = state.selectedPosition.average_price;
+    
+    contentDiv.innerHTML = `
+        <div class="mb-4">
+            <p class="text-sm text-gray-600 mb-2">
+                Set trailing stop loss from average price (₹${avgPrice.toFixed(2)})
+            </p>
+            <div class="mb-4">
+                <label class="block text-sm font-semibold text-gray-900 mb-2">Trail Points</label>
+                <input
+                    type="number"
+                    id="trailPoints"
+                    value="10"
+                    step="0.5"
+                    class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                />
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <button id="startTrailBtn" class="btn-success text-white font-semibold px-6 py-3 rounded-lg">
+                    🎯 Manual Trail
+                </button>
+                <button id="startAutoTrailBtn" class="btn-primary text-white font-semibold px-6 py-3 rounded-lg">
+                    🤖 Auto Trail
+                </button>
+            </div>
+        </div>
+        <div class="p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
+            <strong>ℹ️ Choose Trailing Mode:</strong>
+            <ul class="mt-2 space-y-1 ml-4">
+                <li><strong>Manual Trail:</strong> Place SL and use +/- buttons to adjust manually</li>
+                <li><strong>Auto Trail:</strong> Automatically moves SL in real-time as price moves in your favor (WebSocket)</li>
+            </ul>
+            <p class="mt-2 text-xs">
+                Both use SL (Stop Loss Limit) orders ${isLong ? 'below' : 'above'} your average price with a 5% limit buffer for F&O compatibility.
+            </p>
+        </div>
+    `;
+    
+    configDiv.classList.remove('hidden');
+    
+    // Add event listeners
+    document.getElementById('startTrailBtn').addEventListener('click', startTrailing);
+    document.getElementById('startAutoTrailBtn').addEventListener('click', startAutoTrailing);
+}
+
+async function startTrailing() {
+    if (!state.selectedPosition) return;
+    
+    const trailPoints = parseFloat(document.getElementById('trailPoints').value);
+    const position = state.selectedPosition;
+    const isLong = position.quantity > 0;
+    const avgPrice = position.average_price;
+    
+    // Calculate initial trigger price
+    let triggerPrice = isLong ? avgPrice - trailPoints : avgPrice + trailPoints;
+    triggerPrice = Math.round(triggerPrice / 0.05) * 0.05; // Round to tick size
+    
+    // Calculate limit price with 5% buffer from trigger (wide range for F&O)
+    // This gives enough room for order to execute before we flip to MARKET
+    const bufferPercent = 0.05; // 5% buffer
+    let limitPrice;
+    if (isLong) {
+        // LONG position - SELL order - limit price below trigger
+        limitPrice = triggerPrice * (1 - bufferPercent);
+    } else {
+        // SHORT position - BUY order - limit price above trigger
+        limitPrice = triggerPrice * (1 + bufferPercent);
+    }
+    limitPrice = Math.round(limitPrice / 0.05) * 0.05; // Round to tick size
+    
+    try {
+        // Place SL order (not SL-M) with trigger and limit price
+        const response = await fetch(`${CONFIG.backendUrl}/api/place-order`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-ID': state.userId
+            },
+            body: JSON.stringify({
+                variety: 'regular',
+                exchange: position.exchange,
+                tradingsymbol: position.tradingsymbol,
+                transaction_type: isLong ? 'SELL' : 'BUY',
+                quantity: Math.abs(position.quantity),
+                product: position.product,
+                order_type: 'SL', // SL (Stop Loss Limit)
+                trigger_price: triggerPrice,
+                price: limitPrice // Wide limit price for protection
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Show success message
+            const messagesDiv = document.getElementById('positionMessages');
+            
+            messagesDiv.innerHTML = `
+                <div class="p-4 bg-green-50 border-2 border-green-200 rounded-lg">
+                    <div class="font-bold text-green-800 mb-2">✅ Manual Trailing Stop Loss Activated</div>
+                    <div class="text-sm text-green-700">
+                        <div>Order ID: ${data.order_id}</div>
+                        <div>Order Type: SL (Stop Loss Limit)</div>
+                        <div>Trigger Price: ₹${triggerPrice.toFixed(2)}</div>
+                        <div>Limit Price: ₹${limitPrice.toFixed(2)} (5% buffer)</div>
+                        <div>Trail Points: ${trailPoints}</div>
+                    </div>
+                    <div class="mt-2 text-xs text-gray-600">
+                        💡 Use +/- buttons below to adjust manually
+                    </div>
+                </div>
+            `;
+            
+            // Show manual adjustment controls
+            showManualTrailControls(data.order_id, triggerPrice, limitPrice, trailPoints);
+        } else {
+            alert('Error placing SL order: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+async function startAutoTrailing() {
+    if (!state.selectedPosition) return;
+    
+    const trailPoints = parseFloat(document.getElementById('trailPoints').value);
+    const position = state.selectedPosition;
+    const isLong = position.quantity > 0;
+    const avgPrice = position.average_price;
+    
+    // Calculate initial trigger price
+    let triggerPrice = isLong ? avgPrice - trailPoints : avgPrice + trailPoints;
+    triggerPrice = Math.round(triggerPrice / 0.05) * 0.05;
+    
+    // Calculate limit price
+    let limitPrice;
+    if (isLong) {
+        limitPrice = triggerPrice - trailPoints;
+    } else {
+        limitPrice = triggerPrice + trailPoints;
+    }
+    limitPrice = Math.round(limitPrice / 0.05) * 0.05;
+    
+    try {
+        // First, place the initial SL order
+        const placeResponse = await fetch(`${CONFIG.backendUrl}/api/place-order`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-ID': state.userId
+            },
+            body: JSON.stringify({
+                variety: 'regular',
+                exchange: position.exchange,
+                tradingsymbol: position.tradingsymbol,
+                transaction_type: isLong ? 'SELL' : 'BUY',
+                quantity: Math.abs(position.quantity),
+                product: position.product,
+                order_type: 'SL',
+                trigger_price: triggerPrice,
+                price: limitPrice
+            })
+        });
+        
+        const placeData = await placeResponse.json();
+        
+        if (!placeData.success) {
+            alert('Error placing SL order: ' + placeData.error);
+            return;
+        }
+        
+        // Get instrument token
+        const instrumentToken = await getInstrumentToken(position.exchange, position.tradingsymbol);
+        
+        if (!instrumentToken) {
+            alert('Could not find instrument token');
+            return;
+        }
+        
+        // Start automated trailing
+        const trailResponse = await fetch(`${CONFIG.backendUrl}/api/start-auto-trail`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-ID': state.userId
+            },
+            body: JSON.stringify({
+                symbol: position.tradingsymbol,
+                exchange: position.exchange,
+                instrument_token: instrumentToken,
+                order_id: placeData.order_id,
+                trigger_price: triggerPrice,
+                limit_price: limitPrice,
+                trail_points: trailPoints,
+                exit_type: isLong ? 'SELL' : 'BUY',
+                quantity: Math.abs(position.quantity),
+                product: position.product,
+                variety: 'regular',
+                avg_price: avgPrice
+            })
+        });
+        
+        const trailData = await trailResponse.json();
+        
+        if (trailData.success) {
+            const messagesDiv = document.getElementById('positionMessages');
+            messagesDiv.innerHTML = `
+                <div class="p-4 bg-green-50 border-2 border-green-200 rounded-lg">
+                    <div class="font-bold text-green-800 mb-2">🤖 Automated Trailing Activated!</div>
+                    <div class="text-sm text-green-700">
+                        <div>Order ID: ${placeData.order_id}</div>
+                        <div>Initial Trigger: ₹${triggerPrice.toFixed(2)}</div>
+                        <div>Initial Limit: ₹${limitPrice.toFixed(2)}</div>
+                        <div>Trail Points: ${trailPoints}</div>
+                        <div class="mt-2 font-semibold">🔄 Real-time WebSocket trailing active</div>
+                    </div>
+                </div>
+            `;
+            
+            // Show stop button
+            showAutoTrailControls(trailData.position_key, triggerPrice, limitPrice);
+        } else {
+            alert('Error starting auto trail: ' + trailData.error);
+        }
+        
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+async function getInstrumentToken(exchange, tradingsymbol) {
+    // For now, return a placeholder - in production, you'd fetch from instruments API
+    // This is a simplified version
+    try {
+        const response = await fetch(`${CONFIG.backendUrl}/api/get-instrument-token`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-ID': state.userId
+            },
+            body: JSON.stringify({
+                exchange: exchange,
+                tradingsymbol: tradingsymbol
+            })
+        });
+        
+        const data = await response.json();
+        return data.success ? data.instrument_token : null;
+    } catch (error) {
+        console.error('Error getting instrument token:', error);
+        return null;
+    }
+}
+
+function showAutoTrailControls(positionKey, trigger, limit) {
+    const statusDiv = document.getElementById('trailStatus');
+    const contentDiv = document.getElementById('trailStatusContent');
+    
+    contentDiv.innerHTML = `
+        <div class="space-y-4">
+            <div class="p-4 bg-green-50 rounded-lg border-2 border-green-500">
+                <div class="font-bold text-green-800 mb-2 flex items-center gap-2">
+                    <div class="animate-pulse w-3 h-3 bg-green-600 rounded-full"></div>
+                    Real-Time Automated Trailing Active
+                </div>
+                <div class="text-sm text-green-700">
+                    <div>Initial Trigger: ₹${trigger.toFixed(2)}</div>
+                    <div>Initial Limit: ₹${limit.toFixed(2)}</div>
+                    <div class="mt-2 text-xs">System will automatically move SL as price moves in your favor</div>
+                </div>
+            </div>
+            
+            <!-- Real-time status updates panel -->
+            <div class="p-4 bg-gray-900 rounded-lg text-green-400 font-mono text-xs" style="max-height: 300px; overflow-y: auto;">
+                <div class="font-bold text-green-300 mb-2">📊 Real-Time Trail Status</div>
+                <div id="autoTrailLog" class="space-y-1">
+                    <div class="text-gray-500">Waiting for updates...</div>
+                </div>
+            </div>
+            
+            <button onclick="stopAutoTrailing('${positionKey}')" class="w-full btn-danger text-white font-semibold px-6 py-3 rounded-lg">
+                ⏹️ Stop Auto Trail & Cancel SL
+            </button>
+        </div>
+    `;
+    
+    statusDiv.classList.remove('hidden');
+    
+    // Start polling for status updates every 2 seconds
+    if (state.autoTrailInterval) {
+        clearInterval(state.autoTrailInterval);
+    }
+    
+    state.autoTrailInterval = setInterval(() => {
+        fetchAutoTrailStatus();
+    }, 2000); // Update every 2 seconds
+}
+
+async function fetchAutoTrailStatus() {
+    try {
+        const response = await fetch(`${CONFIG.backendUrl}/api/get-trail-status`, {
             method: 'GET',
             headers: {
                 'X-User-ID': state.userId
@@ -836,111 +1342,482 @@ async function refreshOrderStatus(orderId) {
         
         const data = await response.json();
         
-        if (data.success) {
-            console.log('Order status refreshed:', data);
-        } else {
-            throw new Error(data.error);
+        if (data.success && data.positions) {
+            updateAutoTrailLog(data.positions, data.logs || []);
         }
-        
     } catch (error) {
-        console.error('Error refreshing order status:', error);
+        console.error('Error fetching trail status:', error);
     }
 }
 
-/**
- * Refresh all deployed order statuses
- */
-async function refreshAllOrderStatuses() {
-    if (deployedOrderIds.length === 0) {
-        console.log('No orders to refresh');
-        return;
+function updateAutoTrailLog(positions, logs) {
+    const logDiv = document.getElementById('autoTrailLog');
+    if (!logDiv) return;
+    
+    let html = '';
+    
+    // Show position summaries first
+    for (const [posKey, details] of Object.entries(positions)) {
+        const currentPrice = details.current_price || 0;
+        const trigger = details.trigger_price;
+        const limit = details.limit_price;
+        const pnl = details.pnl || 0;
+        const updateCount = details.update_count || 0;
+        const distance = Math.abs(currentPrice - trigger);
+        const side = details.exit_type === 'SELL' ? 'LONG' : 'SHORT';
+        
+        const pnlColor = pnl >= 0 ? 'text-green-400' : 'text-red-400';
+        const sideColor = side === 'LONG' ? 'text-blue-400' : 'text-orange-400';
+        
+        html += `
+            <div class="border-l-2 border-green-600 pl-2 py-1 mb-2">
+                <div class="flex items-center gap-2">
+                    <span class="${sideColor} font-bold">${side}</span>
+                    <span class="text-white">${details.symbol}</span>
+                    <span class="text-gray-500">#${updateCount}</span>
+                </div>
+                <div class="text-xs">
+                    LTP: <span class="text-white">₹${currentPrice.toFixed(2)}</span> | 
+                    SL: <span class="text-yellow-400">₹${trigger.toFixed(2)}</span> | 
+                    Limit: <span class="text-blue-400">₹${limit.toFixed(2)}</span>
+                </div>
+                <div class="text-xs">
+                    Distance: <span class="text-white">${distance.toFixed(2)}</span> | 
+                    P&L: <span class="${pnlColor}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}</span> pts
+                </div>
+            </div>
+        `;
     }
     
+    // Show recent log entries
+    if (logs && logs.length > 0) {
+        html += '<div class="border-t border-gray-700 my-2 pt-2">';
+        html += '<div class="text-gray-400 text-xs mb-1">Recent Updates:</div>';
+        
+        // Show last 10 logs
+        const recentLogs = logs.slice(-10);
+        for (const log of recentLogs) {
+            const time = new Date(log.time * 1000).toLocaleTimeString();
+            html += `<div class="text-xs text-gray-300">[${time}] ${log.msg}</div>`;
+        }
+        
+        html += '</div>';
+    }
+    
+    if (html === '') {
+        html = '<div class="text-gray-500">No active trailing positions</div>';
+    }
+    
+    logDiv.innerHTML = html;
+    
+    // Auto-scroll to bottom
+    logDiv.parentElement.scrollTop = logDiv.parentElement.scrollHeight;
+}
+
+async function stopAutoTrailing(positionKey) {
     try {
-        const response = await fetch(`${CONFIG.backendUrl}/api/orders-status/batch`, {
+        // Stop the polling interval
+        if (state.autoTrailInterval) {
+            clearInterval(state.autoTrailInterval);
+            state.autoTrailInterval = null;
+        }
+        
+        const response = await fetch(`${CONFIG.backendUrl}/api/stop-auto-trail`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-User-ID': state.userId
             },
-            body: JSON.stringify({ order_ids: deployedOrderIds })
+            body: JSON.stringify({
+                position_key: positionKey
+            })
         });
         
         const data = await response.json();
         
         if (data.success) {
-            console.log('All order statuses refreshed:', data.results);
+            document.getElementById('trailStatus').classList.add('hidden');
+            const messagesDiv = document.getElementById('positionMessages');
+            messagesDiv.innerHTML = `
+                <div class="p-4 bg-yellow-50 border-2 border-yellow-200 rounded-lg">
+                    ⏹️ Automated trailing stopped. Don't forget to cancel the SL order manually if needed.
+                </div>
+            `;
         } else {
-            throw new Error(data.error);
+            alert('Error stopping auto trail: ' + data.error);
         }
-        
     } catch (error) {
-        console.error('Error refreshing statuses:', error);
+        alert('Error: ' + error.message);
     }
 }
 
-/**
- * Show deployment status inline
- */
-function showDeploymentStatus(type, message) {
-    const marginResult = document.getElementById('marginCheckResult');
+function showManualTrailControls(orderId, currentTrigger, currentLimit, trailPoints) {
+    const statusDiv = document.getElementById('trailStatus');
+    const contentDiv = document.getElementById('trailStatusContent');
     
-    if (type === 'success') {
-        marginResult.innerHTML = message;
-    } else if (type === 'error') {
-        marginResult.innerHTML = `
-            <div class="p-2 bg-red-50 border border-red-200 rounded-lg">
-                <p class="text-red-700 font-semibold mb-2 text-xs">${message}</p>
-                <button onclick="clearDeploymentStatus()" class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-1 px-2 rounded transition-colors text-xs">
-                    Try Again
-                </button>
+    contentDiv.innerHTML = `
+        <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div class="p-4 bg-green-50 rounded-lg">
+                    <div class="text-sm text-gray-600 mb-1">Trigger Price</div>
+                    <div class="text-2xl font-bold text-green-600">₹<span id="currentTrigger">${currentTrigger.toFixed(2)}</span></div>
+                </div>
+                <div class="p-4 bg-blue-50 rounded-lg">
+                    <div class="text-sm text-gray-600 mb-1">Limit Price (5%)</div>
+                    <div class="text-xl font-bold text-blue-600">₹<span id="currentLimit">${currentLimit.toFixed(2)}</span></div>
+                </div>
             </div>
-        `;
+            <div>
+                <label class="block text-sm font-semibold text-gray-900 mb-2">Adjust Trigger</label>
+                <div class="grid grid-cols-4 gap-2">
+                    <button onclick="adjustTrigger(-2)" class="border-2 border-gray-300 text-gray-700 font-semibold px-4 py-3 rounded-lg hover:bg-gray-50">
+                        -2 pts
+                    </button>
+                    <button onclick="adjustTrigger(-1)" class="border-2 border-gray-300 text-gray-700 font-semibold px-4 py-3 rounded-lg hover:bg-gray-50">
+                        -1 pt
+                    </button>
+                    <button onclick="adjustTrigger(1)" class="border-2 border-gray-300 text-gray-700 font-semibold px-4 py-3 rounded-lg hover:bg-gray-50">
+                        +1 pt
+                    </button>
+                    <button onclick="adjustTrigger(2)" class="border-2 border-gray-300 text-gray-700 font-semibold px-4 py-3 rounded-lg hover:bg-gray-50">
+                        +2 pts
+                    </button>
+                </div>
+            </div>
+            <button onclick="stopTrailing('${orderId}')" class="w-full btn-danger text-white font-semibold px-6 py-3 rounded-lg">
+                Stop & Cancel SL
+            </button>
+        </div>
+    `;
+    
+    statusDiv.classList.remove('hidden');
+    statusDiv.dataset.orderId = orderId;
+    statusDiv.dataset.currentTrigger = currentTrigger;
+    statusDiv.dataset.currentLimit = currentLimit;
+}
+
+async function adjustTrigger(points) {
+    const statusDiv = document.getElementById('trailStatus');
+    const orderId = statusDiv.dataset.orderId;
+    let currentTrigger = parseFloat(statusDiv.dataset.currentTrigger);
+    
+    const oldTrigger = currentTrigger;
+    currentTrigger += points;
+    currentTrigger = Math.round(currentTrigger / 0.05) * 0.05;
+    
+    // Recalculate limit price with 5% buffer
+    const position = state.selectedPosition;
+    const isLong = position.quantity > 0;
+    const bufferPercent = 0.05; // 5% buffer
+    
+    let limitPrice;
+    if (isLong) {
+        // LONG position - SELL order - limit below trigger
+        limitPrice = currentTrigger * (1 - bufferPercent);
+    } else {
+        // SHORT position - BUY order - limit above trigger
+        limitPrice = currentTrigger * (1 + bufferPercent);
+    }
+    limitPrice = Math.round(limitPrice / 0.05) * 0.05;
+    
+    try {
+        const response = await fetch(`${CONFIG.backendUrl}/api/modify-order`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-ID': state.userId
+            },
+            body: JSON.stringify({
+                order_id: orderId,
+                variety: 'regular',
+                trigger_price: currentTrigger,
+                price: limitPrice,
+                order_type: 'SL',
+                quantity: Math.abs(state.selectedPosition.quantity)
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            statusDiv.dataset.orderId = data.order_id;
+            statusDiv.dataset.currentTrigger = currentTrigger;
+            statusDiv.dataset.currentLimit = limitPrice;
+            document.getElementById('currentTrigger').textContent = currentTrigger.toFixed(2);
+            document.getElementById('currentLimit').textContent = limitPrice.toFixed(2);
+            
+            // Show success feedback with detailed log
+            const messagesDiv = document.getElementById('positionMessages');
+            const timestamp = new Date().toLocaleTimeString();
+            const direction = points > 0 ? '⬆️ RAISED' : '⬇️ LOWERED';
+            const symbol = state.selectedPosition.tradingsymbol;
+            const exchange = state.selectedPosition.exchange;
+            
+            messagesDiv.innerHTML = `
+                <div class="p-3 bg-green-50 border-2 border-green-200 rounded-lg text-sm">
+                    <div class="font-bold text-green-800 mb-1">✅ Manual Adjustment</div>
+                    <div class="font-mono text-xs space-y-1">
+                        <div>[${timestamp}] ${direction} ${exchange}:${symbol}</div>
+                        <div>Old Trigger: ₹${oldTrigger.toFixed(2)} → New: ₹${currentTrigger.toFixed(2)} (${points > 0 ? '+' : ''}${points} pts)</div>
+                        <div>New Limit: ₹${limitPrice.toFixed(2)}</div>
+                        <div>New Order ID: ${data.order_id}</div>
+                    </div>
+                </div>
+            `;
+        } else {
+            alert('Error modifying order: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+async function stopTrailing(orderId) {
+    try {
+        const response = await fetch(`${CONFIG.backendUrl}/api/cancel-order`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-ID': state.userId
+            },
+            body: JSON.stringify({
+                order_id: orderId,
+                variety: 'regular'
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('trailStatus').classList.add('hidden');
+            document.getElementById('positionMessages').innerHTML = `
+                <div class="p-4 bg-yellow-50 border-2 border-yellow-200 rounded-lg">
+                    ⏹️ Trailing stopped and SL order cancelled
+                </div>
+            `;
+        } else {
+            alert('Error cancelling order: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+async function exitPositionImmediately() {
+    if (!state.selectedPosition) return;
+    
+    if (!confirm('Are you sure you want to exit this position immediately at market price?')) {
+        return;
     }
     
-    marginResult.classList.remove('hidden');
-    marginResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
-
-/**
- * Clear deployment status
- */
-function clearDeploymentStatus() {
-    const marginResult = document.getElementById('marginCheckResult');
-    if (marginResult) {
-        marginResult.classList.add('hidden');
-        marginResult.innerHTML = '';
+    const position = state.selectedPosition;
+    const isLong = position.quantity > 0;
+    
+    try {
+        const response = await fetch(`${CONFIG.backendUrl}/api/place-order`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-ID': state.userId
+            },
+            body: JSON.stringify({
+                variety: 'regular',
+                exchange: position.exchange,
+                tradingsymbol: position.tradingsymbol,
+                transaction_type: isLong ? 'SELL' : 'BUY',
+                quantity: Math.abs(position.quantity),
+                product: position.product,
+                order_type: 'MARKET'
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            const messagesDiv = document.getElementById('positionMessages');
+            messagesDiv.innerHTML = `
+                <div class="p-4 bg-green-50 border-2 border-green-200 rounded-lg">
+                    <div class="font-bold text-green-800 mb-2">✅ Exit Order Placed</div>
+                    <div class="text-sm text-green-700">
+                        Order ID: ${data.order_id}
+                    </div>
+                </div>
+            `;
+            
+            // Refresh positions after a delay
+            setTimeout(loadPositions, 2000);
+        } else {
+            alert('Error placing exit order: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
     }
 }
 
-/**
- * Close deployment modal
- */
-function closeDeploymentModal() {
-    const modal = document.getElementById('deploymentModal');
-    if (modal) {
-        modal.style.animation = 'fadeOut 0.3s ease-out';
-        setTimeout(() => modal.remove(), 300);
+// ===========================================
+// CHART MONITOR PAGE
+// ===========================================
+
+function setupChartMonitorListeners() {
+    document.getElementById('startMonitorBtn').addEventListener('click', startChartMonitor);
+    document.getElementById('stopMonitorBtn').addEventListener('click', stopChartMonitor);
+    document.getElementById('checkNowBtn').addEventListener('click', checkCandleNow);
+    document.getElementById('testEmailBtn').addEventListener('click', testEmail);
+}
+
+function addLogEntry(message, type = 'info') {
+    const timestamp = new Date().toLocaleTimeString();
+    const entry = document.createElement('div');
+    entry.className = `log-entry ${type}`;
+    entry.innerHTML = `<span class="text-xs text-gray-500">${timestamp}</span> - ${message}`;
+    
+    const activityLog = document.getElementById('activityLog');
+    activityLog.insertBefore(entry, activityLog.firstChild);
+    
+    // Keep only last 50 entries
+    while (activityLog.children.length > 50) {
+        activityLog.removeChild(activityLog.lastChild);
     }
 }
 
-// Setup function
-function setupStrategiesListeners() {
-    document.getElementById('executeBullishBtn')?.addEventListener('click', executeBullishStrategy);
-    document.getElementById('executeBearishBtn')?.addEventListener('click', executeBearishStrategy);
-    document.getElementById('deployBullishBtn')?.addEventListener('click', openBullishDeployment);
-    document.getElementById('deployBearishBtn')?.addEventListener('click', openBearishDeployment);
+async function startChartMonitor() {
+    const instrumentToken = document.getElementById('instrumentToken').value;
+    const interval = document.getElementById('intervalSelect').value;
+    const threshold = document.getElementById('thresholdPercent').value;
+    const frequency = parseInt(document.getElementById('checkFrequency').value);
+
+    try {
+        const response = await fetch(`${CONFIG.backendUrl}/api/start-monitor`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-ID': state.userId
+            },
+            body: JSON.stringify({
+                instrument_token: instrumentToken,
+                interval: interval,
+                threshold: threshold,
+                frequency: frequency
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            state.monitorRunning = true;
+            const monitorStatus = document.getElementById('monitorStatus');
+            monitorStatus.className = 'monitor-status active';
+            monitorStatus.innerHTML = '<div class="pulse bg-green-600"></div><span>Running</span>';
+            document.getElementById('startMonitorBtn').classList.add('hidden');
+            document.getElementById('stopMonitorBtn').classList.remove('hidden');
+            addLogEntry('✅ Monitor started successfully', 'success');
+            addLogEntry(`Checking every ${frequency / 60} minutes for candles with body > ${threshold}%`, 'info');
+        } else {
+            throw new Error(data.error || 'Failed to start monitor');
+        }
+    } catch (error) {
+        addLogEntry(`❌ Error: ${error.message}`, 'error');
+    }
 }
 
-// Make functions available globally
-window.closeDeploymentModal = closeDeploymentModal;
-window.addFutureToBasket = addFutureToBasket;
-window.addHedgeToBasket = addHedgeToBasket;
+async function stopChartMonitor() {
+    try {
+        const response = await fetch(`${CONFIG.backendUrl}/api/stop-monitor`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-ID': state.userId
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            state.monitorRunning = false;
+            const monitorStatus = document.getElementById('monitorStatus');
+            monitorStatus.className = 'monitor-status inactive';
+            monitorStatus.innerHTML = '<div class="pulse bg-red-600"></div><span>Stopped</span>';
+            document.getElementById('startMonitorBtn').classList.remove('hidden');
+            document.getElementById('stopMonitorBtn').classList.add('hidden');
+            addLogEntry('🛑 Monitor stopped', 'warning');
+        }
+    } catch (error) {
+        addLogEntry(`❌ Error: ${error.message}`, 'error');
+    }
+}
+
+async function testEmail() {
+    addLogEntry('📧 Sending test email...', 'info');
+    const testEmailBtn = document.getElementById('testEmailBtn');
+    testEmailBtn.disabled = true;
+    testEmailBtn.textContent = 'Sending...';
+
+    try {
+        const response = await fetch(`${CONFIG.backendUrl}/api/test-email`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-ID': state.userId
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            addLogEntry('✅ Test email sent! Check your inbox', 'success');
+        } else {
+            throw new Error(data.error || 'Failed to send test email');
+        }
+    } catch (error) {
+        addLogEntry(`❌ Error: ${error.message}`, 'error');
+    } finally {
+        testEmailBtn.disabled = false;
+        testEmailBtn.textContent = 'Test Email';
+    }
+}
+
+async function checkCandleNow() {
+    const instrumentToken = document.getElementById('instrumentToken').value;
+    const interval = document.getElementById('intervalSelect').value;
+    const threshold = document.getElementById('thresholdPercent').value;
+
+    addLogEntry('🔍 Checking candle strength...', 'info');
+
+    try {
+        const response = await fetch(`${CONFIG.backendUrl}/api/check-candle`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-User-ID': state.userId
+            },
+            body: JSON.stringify({
+                instrument_token: instrumentToken,
+                interval: interval,
+                threshold: threshold
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            const result = data.result;
+            addLogEntry(
+                `Body: ${result.body_percent.toFixed(2)}% | ${result.message}`,
+                result.alert_sent ? 'success' : 'info'
+            );
+            if (result.alert_sent) {
+                addLogEntry(`📧 Alert email sent`, 'success');
+            }
+        } else {
+            throw new Error(data.error || 'Failed to check candle');
+        }
+    } catch (error) {
+        addLogEntry(`❌ Error: ${error.message}`, 'error');
+    }
+}
+
+// Make functions available globally for onclick handlers
 window.removeFromBasket = removeFromBasket;
-window.clearBasket = clearBasket;
-window.checkBasketMargin = checkBasketMargin;
-window.deployBasket = deployBasket;
-window.showDeploymentStatus = showDeploymentStatus;
-window.clearDeploymentStatus = clearDeploymentStatus;
-window.refreshOrderStatus = refreshOrderStatus;
-window.refreshAllOrderStatuses = refreshAllOrderStatuses;
+window.adjustTrigger = adjustTrigger;
+window.stopTrailing = stopTrailing;
+window.stopAutoTrailing = stopAutoTrailing;
