@@ -528,7 +528,7 @@
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                         </svg>
-                        <span>Place Orders</span>
+                        <span>Invest</span>
                     </div>
                 </div>
                 <div class="menu-item" data-page="strategies">
@@ -734,7 +734,7 @@
                         <input
                             type="text"
                             id="orderSymbol"
-                            placeholder="e.g., RELIANCE"
+                            placeholder="e.g., RELIANCE, NIFTY"
                             class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 mono text-sm"
                             autocomplete="off"
                         />
@@ -759,7 +759,7 @@
                         <input
                             type="number"
                             id="orderQuantity"
-                            value="100"
+                            value="25"
                             min="1"
                             class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
                         />
@@ -797,7 +797,7 @@
                             class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
                         >
                             <option value="CNC">CNC</option>
-                            <option value="MARKET">MARKET</option>
+                            <option value="MIS">MIS</option>
                             <option value="NRML">NRML</option>
                         </select>
                     </div>
@@ -851,6 +851,9 @@
             <!-- Action Buttons -->
             <div class="bg-white border-2 border-gray-200 rounded-xl p-4 md:p-6">
                 <div class="flex flex-col sm:flex-row gap-3 md:gap-4">
+                    <button id="checkMarginBtn" class="border-2 border-[#FE4A03] text-[#FE4A03] font-semibold px-6 py-3 rounded-lg hover:bg-[#FE4A03] hover:text-white transition-colors flex-1">
+                        Check Funds
+                    </button>
                     <button id="placeAllOrdersBtn" class="btn-success text-white font-semibold px-6 py-3 rounded-lg flex-1">
                         Place All Orders
                     </button>
