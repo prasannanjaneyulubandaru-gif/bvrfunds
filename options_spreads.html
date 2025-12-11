@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Options Spreads - BVR Funds</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .badge {
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .badge-buy {
+            background: #10b981;
+            color: white;
+        }
+        
+        .badge-sell {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .badge-info {
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+        .btn-primary {
+            background: #FE4A03;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary:hover {
+            background: #dc3800;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(254, 74, 3, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #6366f1;
+            transition: all 0.3s;
+        }
+        
+        .btn-secondary:hover {
+            background: #4f46e5;
+            transform: translateY(-2px);
+        }
+        
+        .btn-success {
+            background: #10b981;
+        }
+        
+        .btn-success:hover {
+            background: #059669;
+        }
+        
+        .expiry-btn {
+            transition: all 0.3s;
+            border: 2px solid #e5e7eb;
+        }
+        
+        .expiry-btn:hover {
+            border-color: #FE4A03;
+            transform: translateY(-2px);
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        .mono {
+            font-family: 'Courier New', monospace;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #FE4A03;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="min-h-screen p-6">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-4xl font-bold text-white mb-2">📊 Options Spreads</h1>
+            <p class="text-blue-100">Deploy professional options spread strategies with intelligent strike selection</p>
+        </div>
+        
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Left Column: Strategy Selection -->
+            <div class="lg:col-span-1 space-y-6">
+                
+                <!-- Expiry Selection Card -->
+                <div class="card">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">🗓️ Select Expiry</h2>
+                    <div class="space-y-3">
+                        <button 
+                            id="weeklyExpiryBtn"
+                            class="expiry-btn w-full px-4 py-3 rounded-lg font-semibold text-gray-700 bg-white hover:shadow-md"
+                        >
+                            📅 Current Week
+                        </button>
+                        <button 
+                            id="nextWeeklyExpiryBtn"
+                            class="expiry-btn w-full px-4 py-3 rounded-lg font-semibold text-gray-700 bg-white hover:shadow-md"
+                        >
+                            📅 Next Week
+                        </button>
+                        <button 
+                            id="monthlyExpiryBtn"
+                            class="expiry-btn w-full px-4 py-3 rounded-lg font-semibold text-gray-700 bg-white hover:shadow-md"
+                        >
+                            📅 Monthly Expiry
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Hedge Premium Configuration -->
+                <div class="card">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">⚙️ Configuration</h2>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Hedge Premium (% of Sell Premium)
+                        </label>
+                        <input 
+                            type="number" 
+                            id="hedgePremiumPercent" 
+                            value="30"
+                            min="20"
+                            max="40"
+                            step="1"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 font-semibold text-lg"
+                        />
+                        <p class="text-xs text-gray-500 mt-2">
+                            Recommended: 25-30% for balanced risk-reward
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- Strategy Buttons -->
+                <div class="card">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">🎯 Find Instruments</h2>
+                    <div class="space-y-3">
+                        <!-- Bullish -->
+                        <div>
+                            <button 
+                                id="findBullishSpreadBtn"
+                                class="w-full btn-success text-white font-semibold px-6 py-3 rounded-lg"
+                            >
+                                📈 Bullish Spread (Sell PUT + Buy PUT)
+                            </button>
+                            <div id="bullishSpreadLoading" class="hidden mt-3 flex items-center justify-center gap-2 text-green-600">
+                                <div class="spinner"></div>
+                                <span class="text-sm font-semibold">Finding instruments...</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Bearish -->
+                        <div>
+                            <button 
+                                id="findBearishSpreadBtn"
+                                class="w-full bg-red-600 text-white font-semibold px-6 py-3 rounded-lg hover:bg-red-700"
+                            >
+                                📉 Bearish Spread (Sell CALL + Buy CALL)
+                            </button>
+                            <div id="bearishSpreadLoading" class="hidden mt-3 flex items-center justify-center gap-2 text-red-600">
+                                <div class="spinner"></div>
+                                <span class="text-sm font-semibold">Finding instruments...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+            <!-- Middle Column: Results & Analysis -->
+            <div class="lg:col-span-2 space-y-6">
+                
+                <!-- Spread Results -->
+                <div id="spreadResults" class="card hidden animate-fade-in">
+                    <div class="mb-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-2xl font-bold text-gray-900" id="selectedStrategyType">Strategy</h2>
+                            <span class="badge badge-info text-sm" id="selectedExpiryType">Expiry</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Spread Legs -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        
+                        <!-- SELL Leg -->
+                        <div class="border-2 border-red-200 rounded-lg p-4 bg-red-50">
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="badge badge-sell">SELL</span>
+                                <span class="text-xs font-semibold text-gray-600" id="sellAction">SHORT</span>
+                            </div>
+                            <div class="space-y-2">
+                                <div>
+                                    <div class="text-xs text-gray-600">Symbol</div>
+                                    <div class="font-bold mono text-sm" id="sellSymbol">-</div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <div class="text-xs text-gray-600">Strike</div>
+                                        <div class="font-bold" id="sellStrike">-</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs text-gray-600">Type</div>
+                                        <div class="font-bold" id="sellOptionType">-</div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="text-xs text-gray-600">Expiry</div>
+                                    <div class="text-sm font-semibold" id="sellExpiry">-</div>
+                                </div>
+                                <div class="pt-2 border-t-2 border-red-300">
+                                    <div class="text-xs text-gray-600">Premium</div>
+                                    <div class="text-xl font-bold text-green-600" id="sellPremium">-</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- BUY Leg -->
+                        <div class="border-2 border-green-200 rounded-lg p-4 bg-green-50">
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="badge badge-buy">BUY</span>
+                                <span class="text-xs font-semibold text-gray-600" id="buyAction">LONG</span>
+                            </div>
+                            <div class="space-y-2">
+                                <div>
+                                    <div class="text-xs text-gray-600">Symbol</div>
+                                    <div class="font-bold mono text-sm" id="buySymbol">-</div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <div class="text-xs text-gray-600">Strike</div>
+                                        <div class="font-bold" id="buyStrike">-</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs text-gray-600">Type</div>
+                                        <div class="font-bold" id="buyOptionType">-</div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="text-xs text-gray-600">Expiry</div>
+                                    <div class="text-sm font-semibold" id="buyExpiry">-</div>
+                                </div>
+                                <div class="pt-2 border-t-2 border-green-300">
+                                    <div class="text-xs text-gray-600">Premium</div>
+                                    <div class="text-xl font-bold text-red-600" id="buyPremium">-</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Spread Analysis -->
+                    <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mb-6">
+                        <h3 class="font-bold text-blue-900 mb-3">📊 Spread Analysis</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div>
+                                <div class="text-xs text-gray-600">Net Credit</div>
+                                <div class="text-lg font-bold text-green-600" id="netCredit">₹0.00</div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-gray-600">Max Profit</div>
+                                <div class="text-lg font-bold text-green-600" id="maxProfit">₹0.00</div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-gray-600">Max Loss</div>
+                                <div class="text-lg font-bold text-red-600" id="maxLoss">₹0.00</div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-gray-600">Risk:Reward</div>
+                                <div class="text-lg font-bold text-blue-600" id="riskRewardRatio">1:0.00</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Add to Basket -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Number of Lots</label>
+                        <div class="flex gap-3">
+                            <input 
+                                type="number" 
+                                id="spreadLots" 
+                                value="1"
+                                min="1"
+                                max="100"
+                                class="flex-1 px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 font-semibold"
+                            />
+                            <button 
+                                id="addToBasketBtn"
+                                class="btn-primary text-white font-semibold px-8 py-3 rounded-lg"
+                            >
+                                ➕ Add to Basket
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Order Basket -->
+                <div class="card">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-bold text-gray-900">🛒 Order Basket</h2>
+                        <button 
+                            id="clearSpreadBasketBtn"
+                            class="text-red-600 hover:text-red-700 font-semibold text-sm"
+                        >
+                            Clear All
+                        </button>
+                    </div>
+                    
+                    <div id="spreadOrderBasket" class="space-y-3 mb-6">
+                        <div class="text-center text-gray-500 py-8">No orders in basket</div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <button 
+                            id="checkSpreadMarginBtn"
+                            class="btn-secondary text-white font-semibold px-6 py-3 rounded-lg"
+                        >
+                            💰 Check Margin
+                        </button>
+                        <button 
+                            id="deploySpreadBtn"
+                            class="btn-primary text-white font-semibold px-6 py-3 rounded-lg"
+                        >
+                            🚀 Deploy Strategy
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Margin Info -->
+                <div id="spreadMarginInfo"></div>
+                
+                <!-- Deployment Status -->
+                <div id="spreadDeployStatus"></div>
+                
+            </div>
+            
+        </div>
+        
+        <!-- Information Footer -->
+        <div class="card mt-6">
+            <h3 class="font-bold text-gray-900 mb-3">ℹ️ How Options Spreads Work</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
+                <div>
+                    <h4 class="font-semibold text-green-600 mb-2">📈 Bullish Spread (Bull Put Spread)</h4>
+                    <ul class="space-y-1 ml-4 list-disc">
+                        <li><strong>Sell ATM PUT:</strong> Collect premium</li>
+                        <li><strong>Buy OTM PUT:</strong> Limit risk</li>
+                        <li><strong>Best for:</strong> Moderately bullish outlook</li>
+                        <li><strong>Max Profit:</strong> Net premium collected</li>
+                        <li><strong>Max Loss:</strong> Difference in strikes - net premium</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-red-600 mb-2">📉 Bearish Spread (Bear Call Spread)</h4>
+                    <ul class="space-y-1 ml-4 list-disc">
+                        <li><strong>Sell ATM CALL:</strong> Collect premium</li>
+                        <li><strong>Buy OTM CALL:</strong> Limit risk</li>
+                        <li><strong>Best for:</strong> Moderately bearish outlook</li>
+                        <li><strong>Max Profit:</strong> Net premium collected</li>
+                        <li><strong>Max Loss:</strong> Difference in strikes - net premium</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="mt-4 p-3 bg-yellow-50 rounded-lg text-xs text-yellow-800">
+                <strong>⚠️ Risk Disclosure:</strong> Options trading involves substantial risk. The system automatically selects:
+                <ul class="mt-2 ml-4 list-disc">
+                    <li>ATM (At-The-Money) options for SELL leg - maximum premium collection</li>
+                    <li>OTM (Out-of-The-Money) options for BUY leg - risk hedging at 25-30% of sell premium</li>
+                    <li>Same expiry for both legs - ensuring spread integrity</li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+    
+    <!-- Include your main app.js and the options spreads JS -->
+    <script src="app.js"></script>
+    <script src="options_spreads.js"></script>
+    <script>
+        // Initialize when page loads
+        window.addEventListener('load', () => {
+            setupOptionsStreadsListeners();
+            // Set default to weekly expiry
+            setExpiryType('weekly');
+        });
+    </script>
+</body>
+</html>
