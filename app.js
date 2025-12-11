@@ -275,8 +275,6 @@ function setupEventListeners() {
     
     // Strike Selection Page
      setupStrategiesListeners();
-    // Option spreads page
-     setupOptionsStreadsListeners();
 }
 
 function handleCredentialsSubmit(e) {
