@@ -3,7 +3,7 @@
 const DASHBOARD_CONFIG = {
     backendUrl: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
         ? 'http://localhost:5000' 
-        : 'https://bvrfunds-dev-ulhe9.ondigitalocean.app',
+        : 'https://shark-app-hyd9r.ondigitalocean.app',
     positionsRefreshInterval: 5000, // 5 seconds
     ordersRefreshInterval: 15000    // 15 seconds
 };
