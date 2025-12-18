@@ -1213,22 +1213,50 @@
                 `;
                 
                 summary.results.forEach(result => {
-                    const statusClass = result.success ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700';
+                    // Get status information
+                    const status = result.status || 'UNKNOWN';
+                    const statusMessage = result.status_message || result.error || '';
+                    
+                    // Color coding based on status
+                    let bgColor, borderColor, textColor, statusBadgeClass;
+                    if (status === 'COMPLETE') {
+                        bgColor = 'bg-green-50';
+                        borderColor = 'border-green-200';
+                        textColor = 'text-green-700';
+                        statusBadgeClass = 'bg-green-100 text-green-800';
+                    } else if (status === 'REJECTED') {
+                        bgColor = 'bg-red-50';
+                        borderColor = 'border-red-200';
+                        textColor = 'text-red-700';
+                        statusBadgeClass = 'bg-red-100 text-red-800';
+                    } else if (status === 'CANCELLED') {
+                        bgColor = 'bg-gray-50';
+                        borderColor = 'border-gray-200';
+                        textColor = 'text-gray-700';
+                        statusBadgeClass = 'bg-gray-100 text-gray-800';
+                    } else {
+                        bgColor = 'bg-yellow-50';
+                        borderColor = 'border-yellow-200';
+                        textColor = 'text-yellow-700';
+                        statusBadgeClass = 'bg-yellow-100 text-yellow-800';
+                    }
+                    
                     html += `
-                        <div class="border-2 ${statusClass} rounded-lg p-3">
-                            <div class="flex items-center justify-between mb-1">
+                        <div class="border-2 ${bgColor} ${borderColor} rounded-lg p-3">
+                            <div class="flex items-center justify-between mb-2">
                                 <span class="font-mono font-semibold text-sm">${result.symbol}</span>
-                                <span class="text-xs font-bold">${result.status}</span>
+                                <span class="px-2 py-1 ${statusBadgeClass} text-xs font-bold rounded-full border">${status}</span>
                             </div>
-                            ${result.success ? `
-                                <div class="text-xs">
-                                    Order ID: ${result.order_id} • 
-                                    Lots: ${result.lots} • 
-                                    Qty: ${result.quantity}
+                            <div class="text-xs ${textColor}">
+                                Order ID: ${result.order_id || 'N/A'} • 
+                                Lots: ${result.lots || 0} • 
+                                Qty: ${result.quantity || 0}
+                            </div>
+                            ${statusMessage ? `
+                                <div class="mt-2 text-xs ${textColor} font-semibold border-t pt-2 ${borderColor}">
+                                    ${statusMessage}
                                 </div>
-                            ` : `
-                                <div class="text-xs">${result.error}</div>
-                            `}
+                            ` : ''}
                         </div>
                     `;
                 });
@@ -1241,6 +1269,19 @@
                 resultDiv.innerHTML = html;
                 updateBasketOrdersDisplay();
                 updateBasketCountDisplay();
+                
+                // Show notification
+                if (summary.failed > 0) {
+                    window.BasketManager.showToast(
+                        `Deployment complete: ${summary.successful} succeeded, ${summary.failed} failed`, 
+                        'warning'
+                    );
+                } else {
+                    window.BasketManager.showToast(
+                        `All ${summary.successful} orders deployed successfully!`, 
+                        'success'
+                    );
+                }
             },
             (error) => {
                 resultDiv.innerHTML = `<p class="text-center text-red-600 py-4">Error: ${error}</p>`;
