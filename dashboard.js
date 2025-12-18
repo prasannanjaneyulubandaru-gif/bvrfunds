@@ -5,12 +5,14 @@ const DASHBOARD_CONFIG = {
         ? 'http://localhost:5000' 
         : 'https://shark-app-hyd9r.ondigitalocean.app',
     positionsRefreshInterval: 5000, // 5 seconds
-    ordersRefreshInterval: 15000    // 15 seconds
+    ordersRefreshInterval: 15000,    // 15 seconds
+    pnlRefreshInterval: 10000        // 10 seconds
 };
 
 let dashboardState = {
     positionsInterval: null,
     ordersInterval: null,
+    pnlInterval: null,
     isInitialized: false
 };
 
@@ -27,6 +29,7 @@ function initializeDashboard() {
     }
     
     // Initial load
+    loadPnlSummary();
     loadDashboardPositions();
     loadDashboardOrders();
     
@@ -38,12 +41,14 @@ function initializeDashboard() {
 
 function startAutoRefresh() {
     // Clear existing intervals if any
-    if (dashboardState.positionsInterval) {
-        clearInterval(dashboardState.positionsInterval);
-    }
-    if (dashboardState.ordersInterval) {
-        clearInterval(dashboardState.ordersInterval);
-    }
+    if (dashboardState.positionsInterval) clearInterval(dashboardState.positionsInterval);
+    if (dashboardState.ordersInterval) clearInterval(dashboardState.ordersInterval);
+    if (dashboardState.pnlInterval) clearInterval(dashboardState.pnlInterval);
+    
+    // Start P&L refresh (every 10 seconds)
+    dashboardState.pnlInterval = setInterval(() => {
+        loadPnlSummary();
+    }, DASHBOARD_CONFIG.pnlRefreshInterval);
     
     // Start positions refresh (every 5 seconds)
     dashboardState.positionsInterval = setInterval(() => {
@@ -55,7 +60,7 @@ function startAutoRefresh() {
         loadDashboardOrders();
     }, DASHBOARD_CONFIG.ordersRefreshInterval);
     
-    console.log('🔄 Auto-refresh started: Positions (5s), Orders (15s)');
+    console.log('🔄 Auto-refresh started: P&L (10s), Positions (5s), Orders (15s)');
 }
 
 function stopAutoRefresh() {
@@ -67,7 +72,95 @@ function stopAutoRefresh() {
         clearInterval(dashboardState.ordersInterval);
         dashboardState.ordersInterval = null;
     }
+    if (dashboardState.pnlInterval) {
+        clearInterval(dashboardState.pnlInterval);
+        dashboardState.pnlInterval = null;
+    }
     console.log('⏹️ Auto-refresh stopped');
+}
+
+async function loadPnlSummary() {
+    try {
+        const userId = sessionStorage.getItem('userid') || sessionStorage.getItem('userId') || sessionStorage.getItem('user_id');
+        
+        if (!userId) {
+            console.error('❌ userId is null/undefined');
+            return;
+        }
+        
+        const response = await fetch(`${DASHBOARD_CONFIG.backendUrl}/api/dashboard/pnl-summary`, {
+            method: 'GET',
+            headers: {
+                'X-User-ID': userId,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            displayPnlSummary(data);
+        } else {
+            console.error('❌ API Error:', data.error);
+        }
+    } catch (error) {
+        console.error('❌ Fetch Error:', error);
+    }
+}
+
+function displayPnlSummary(data) {
+    const totalPnlElement = document.getElementById('dashboardTotalPnl');
+    
+    if (!totalPnlElement) return;
+    
+    const netPnlColor = data.net_pnl >= 0 ? 'text-green-600' : 'text-red-600';
+    const netPnlSign = data.net_pnl >= 0 ? '+' : '';
+    const grossPnlColor = data.gross_profit >= 0 ? 'text-green-600' : 'text-red-600';
+    
+    totalPnlElement.innerHTML = `
+        <div class="space-y-3">
+            <!-- Net P&L - Prominent Display -->
+            <div class="text-center pb-3 border-b-2 border-gray-200">
+                <div class="text-xs text-gray-500 mb-1">Net P&L</div>
+                <div class="text-3xl font-bold ${netPnlColor}">${netPnlSign}₹${data.net_pnl.toFixed(2)}</div>
+            </div>
+            
+            <!-- Detailed Breakdown -->
+            <div class="space-y-2 text-xs">
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Opening Balance:</span>
+                    <span class="font-mono font-semibold text-gray-900">₹${data.opening_balance.toFixed(2)}</span>
+                </div>
+                
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Gross P&L:</span>
+                    <span class="font-mono font-semibold ${grossPnlColor}">₹${data.gross_profit.toFixed(2)}</span>
+                </div>
+                
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Unrealised P&L:</span>
+                    <span class="font-mono font-semibold text-blue-600">₹${data.unrealised_pnl.toFixed(2)}</span>
+                </div>
+                
+                <div class="pt-2 border-t border-gray-200"></div>
+                
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Brokerage:</span>
+                    <span class="font-mono font-semibold text-red-600">₹${data.total_brokerage.toFixed(2)}</span>
+                </div>
+                
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Other Charges:</span>
+                    <span class="font-mono font-semibold text-red-600">₹${data.other_charges.toFixed(2)}</span>
+                </div>
+                
+                <div class="flex justify-between font-semibold">
+                    <span class="text-gray-700">Total Charges:</span>
+                    <span class="font-mono text-red-700">₹${data.total_charges.toFixed(2)}</span>
+                </div>
+            </div>
+        </div>
+    `;
 }
 
 async function loadDashboardPositions() {
@@ -90,7 +183,7 @@ async function loadDashboardPositions() {
         const data = await response.json();
         
         if (data.success) {
-            displayDashboardPositions(data.net_positions, data.day_positions, data.total_pnl);
+            displayDashboardPositions(data.net_positions, data.day_positions);
         } else {
             console.error('❌ API Error:', data.error);
             showPositionsError(data.error);
@@ -101,36 +194,67 @@ async function loadDashboardPositions() {
     }
 }
 
-function displayDashboardPositions(netPositions, dayPositions, totalPnl) {
+function displayDashboardPositions(netPositions, dayPositions) {
     const positionsContainer = document.getElementById('dashboardPositionsContainer');
-    const totalPnlElement = document.getElementById('dashboardTotalPnl');
     
-    if (!positionsContainer || !totalPnlElement) return;
+    if (!positionsContainer) return;
     
     let html = '';
     
-    // Display NET positions (active - dark/glowing)
+    // Display NET positions (active)
     if (netPositions && netPositions.length > 0) {
-        html += '<div class="mb-4"><h3 class="text-sm font-bold text-gray-700 mb-2">Active Positions</h3>';
+        html += '<div class="mb-6"><h3 class="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2"><span class="inline-block w-2 h-2 bg-green-500 rounded-full"></span>Active Positions</h3>';
         
         netPositions.forEach(position => {
             const pnlColor = position.pnl >= 0 ? 'text-green-600' : 'text-red-600';
             const bgColor = position.pnl >= 0 ? 'bg-green-50' : 'bg-red-50';
             const borderColor = position.pnl >= 0 ? 'border-green-200' : 'border-red-200';
             const glowClass = position.pnl >= 0 ? 'shadow-green-glow' : 'shadow-red-glow';
+            const qtyColor = position.quantity > 0 ? 'text-blue-600' : 'text-orange-600';
+            const qtyLabel = position.quantity > 0 ? 'LONG' : 'SHORT';
             
             html += `
-                <div class="position-card-active border-2 ${borderColor} ${bgColor} ${glowClass} rounded-lg p-3 mb-2 transition-all hover:scale-102">
-                    <div class="flex items-center justify-between">
+                <div class="position-card-active border-2 ${borderColor} ${bgColor} ${glowClass} rounded-lg p-4 mb-3 transition-all hover:scale-102">
+                    <!-- Header Row -->
+                    <div class="flex items-center justify-between mb-3">
                         <div class="flex-1">
-                            <div class="font-mono text-sm font-bold text-gray-900">${position.display_symbol}</div>
-                            <div class="text-xs text-gray-600 mt-1">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="px-2 py-0.5 ${position.quantity > 0 ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'} text-xs font-bold rounded">${qtyLabel}</span>
+                                <span class="font-mono text-base font-bold text-gray-900">${position.tradingsymbol}</span>
+                            </div>
+                            <div class="text-xs text-gray-600">
                                 <span class="badge badge-sm badge-primary">${position.product}</span>
+                                <span class="mx-1">•</span>
+                                <span class="badge badge-sm badge-secondary">${position.exchange}</span>
                             </div>
                         </div>
                         <div class="text-right">
                             <div class="text-xs text-gray-500">P&L</div>
-                            <div class="font-bold text-lg ${pnlColor}">₹${position.pnl.toFixed(2)}</div>
+                            <div class="font-bold text-xl ${pnlColor}">₹${position.pnl.toFixed(2)}</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Details Grid -->
+                    <div class="grid grid-cols-2 gap-x-4 gap-y-2 pt-3 border-t border-gray-200">
+                        <div>
+                            <div class="text-xs text-gray-500">Quantity</div>
+                            <div class="font-mono font-semibold ${qtyColor}">${Math.abs(position.quantity)}</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500">Avg Price</div>
+                            <div class="font-mono font-semibold text-gray-900">₹${position.average_price.toFixed(2)}</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500">Last Price</div>
+                            <div class="font-mono font-semibold text-gray-900">₹${position.last_price.toFixed(2)}</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500">Day Qty</div>
+                            <div class="font-mono text-sm text-gray-700">
+                                ${position.day_buy_quantity > 0 ? `<span class="text-green-600">+${position.day_buy_quantity}</span>` : ''}
+                                ${position.day_sell_quantity > 0 ? `<span class="text-red-600">-${position.day_sell_quantity}</span>` : ''}
+                                ${position.day_buy_quantity === 0 && position.day_sell_quantity === 0 ? '-' : ''}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -140,25 +264,36 @@ function displayDashboardPositions(netPositions, dayPositions, totalPnl) {
         html += '</div>';
     }
     
-    // Display DAY positions (inactive - grey)
+    // Display DAY positions (closed - greyed out)
     if (dayPositions && dayPositions.length > 0) {
-        html += '<div><h3 class="text-sm font-bold text-gray-400 mb-2">Day Positions (Closed)</h3>';
+        html += '<div><h3 class="text-sm font-bold text-gray-400 mb-3 flex items-center gap-2"><span class="inline-block w-2 h-2 bg-gray-400 rounded-full"></span>Closed Today</h3>';
         
         dayPositions.forEach(position => {
-            const pnlColor = position.pnl >= 0 ? 'text-gray-500' : 'text-gray-600';
+            const pnlColor = position.pnl >= 0 ? 'text-gray-600' : 'text-gray-700';
             
             html += `
-                <div class="border-2 border-gray-200 bg-gray-50 rounded-lg p-3 mb-2 opacity-60">
-                    <div class="flex items-center justify-between">
+                <div class="border-2 border-gray-200 bg-gray-50 rounded-lg p-4 mb-3 opacity-70">
+                    <div class="flex items-center justify-between mb-2">
                         <div class="flex-1">
-                            <div class="font-mono text-sm font-semibold text-gray-500">${position.display_symbol}</div>
-                            <div class="text-xs text-gray-400 mt-1">
+                            <div class="font-mono text-sm font-semibold text-gray-600">${position.tradingsymbol}</div>
+                            <div class="text-xs text-gray-500 mt-1">
                                 <span class="badge badge-sm badge-secondary">${position.product}</span>
                             </div>
                         </div>
                         <div class="text-right">
                             <div class="text-xs text-gray-400">P&L</div>
-                            <div class="font-bold ${pnlColor}">₹${position.pnl.toFixed(2)}</div>
+                            <div class="font-bold text-lg ${pnlColor}">₹${position.pnl.toFixed(2)}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-x-4 gap-y-1 pt-2 border-t border-gray-300 text-xs">
+                        <div>
+                            <span class="text-gray-400">Buy Qty:</span>
+                            <span class="font-mono text-gray-600">${position.buy_quantity}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-400">Sell Qty:</span>
+                            <span class="font-mono text-gray-600">${position.sell_quantity}</span>
                         </div>
                     </div>
                 </div>
@@ -173,16 +308,6 @@ function displayDashboardPositions(netPositions, dayPositions, totalPnl) {
     }
     
     positionsContainer.innerHTML = html;
-    
-    // Update total PnL in top right corner
-    const pnlColor = totalPnl >= 0 ? 'text-green-600' : 'text-red-600';
-    const pnlSign = totalPnl >= 0 ? '+' : '';
-    totalPnlElement.innerHTML = `
-        <div class="text-right">
-            <div class="text-xs text-gray-500 mb-1">Total P&L</div>
-            <div class="text-2xl font-bold ${pnlColor}">${pnlSign}₹${totalPnl.toFixed(2)}</div>
-        </div>
-    `;
 }
 
 function showPositionsError(error) {
@@ -379,6 +504,7 @@ window.DashboardModule = {
     initialize: initializeDashboard,
     cleanup: cleanupDashboard,
     refresh: {
+        pnl: loadPnlSummary,
         positions: loadDashboardPositions,
         orders: loadDashboardOrders
     }
