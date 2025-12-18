@@ -1187,29 +1187,14 @@
         resultDiv.innerHTML = '<p class="text-center py-4">Deploying orders...</p>';
         resultDiv.classList.remove('hidden');
         
-        let deployedOrderIds = [];  // Store order IDs for refresh
-        
         await window.BasketManager.deploy(
             (message, progress) => {
                 resultDiv.innerHTML = `<p class="text-center py-4">${message}</p>`;
             },
             (summary) => {
-                // Store order IDs
-                deployedOrderIds = summary.results
-                    .filter(r => r.order_id)
-                    .map(r => r.order_id);
-                
                 let html = `
                     <div class="bg-white border-2 border-gray-200 rounded-lg p-4">
-                        <div class="flex items-center justify-between mb-4">
-                            <h3 class="font-bold text-lg">Deployment Complete</h3>
-                            ${deployedOrderIds.length > 0 ? `
-                                <button onclick="refreshOrderStatuses()" 
-                                        class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600">
-                                    🔄 Refresh Status
-                                </button>
-                            ` : ''}
-                        </div>
+                        <h3 class="font-bold text-lg mb-4">Deployment Complete</h3>
                         <div class="grid grid-cols-3 gap-4 mb-4 text-center">
                             <div>
                                 <div class="text-2xl font-bold text-gray-900">${summary.total}</div>
@@ -1224,59 +1209,26 @@
                                 <div class="text-xs text-gray-600">Failed</div>
                             </div>
                         </div>
-                        <div id="orderResultsList" class="space-y-2 max-h-96 overflow-y-auto">
+                        <div class="space-y-2 max-h-96 overflow-y-auto">
                 `;
                 
                 summary.results.forEach(result => {
-                    // Get status information
-                    const status = result.status || 'UNKNOWN';
-                    const statusMessage = result.status_message || result.error || '';
-                    
-                    // Color coding based on status
-                    let bgColor, borderColor, textColor, statusBadgeClass;
-                    if (status === 'COMPLETE') {
-                        bgColor = 'bg-green-50';
-                        borderColor = 'border-green-200';
-                        textColor = 'text-green-700';
-                        statusBadgeClass = 'bg-green-100 text-green-800';
-                    } else if (status === 'REJECTED') {
-                        bgColor = 'bg-red-50';
-                        borderColor = 'border-red-200';
-                        textColor = 'text-red-700';
-                        statusBadgeClass = 'bg-red-100 text-red-800';
-                    } else if (status === 'CANCELLED') {
-                        bgColor = 'bg-gray-50';
-                        borderColor = 'border-gray-200';
-                        textColor = 'text-gray-700';
-                        statusBadgeClass = 'bg-gray-100 text-gray-800';
-                    } else if (status === 'PENDING' || status === 'OPEN') {
-                        bgColor = 'bg-yellow-50';
-                        borderColor = 'border-yellow-200';
-                        textColor = 'text-yellow-700';
-                        statusBadgeClass = 'bg-yellow-100 text-yellow-800';
-                    } else {
-                        bgColor = 'bg-yellow-50';
-                        borderColor = 'border-yellow-200';
-                        textColor = 'text-yellow-700';
-                        statusBadgeClass = 'bg-yellow-100 text-yellow-800';
-                    }
-                    
+                    const statusClass = result.success ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700';
                     html += `
-                        <div class="border-2 ${bgColor} ${borderColor} rounded-lg p-3" data-order-id="${result.order_id}">
-                            <div class="flex items-center justify-between mb-2">
+                        <div class="border-2 ${statusClass} rounded-lg p-3">
+                            <div class="flex items-center justify-between mb-1">
                                 <span class="font-mono font-semibold text-sm">${result.symbol}</span>
-                                <span class="px-2 py-1 ${statusBadgeClass} text-xs font-bold rounded-full border">${status}</span>
+                                <span class="text-xs font-bold">${result.status}</span>
                             </div>
-                            <div class="text-xs ${textColor}">
-                                Order ID: ${result.order_id || 'N/A'} • 
-                                Lots: ${result.lots || 0} • 
-                                Qty: ${result.quantity || 0}
-                            </div>
-                            ${statusMessage ? `
-                                <div class="mt-2 text-xs ${textColor} font-semibold border-t pt-2 ${borderColor}">
-                                    ${statusMessage}
+                            ${result.success ? `
+                                <div class="text-xs">
+                                    Order ID: ${result.order_id} • 
+                                    Lots: ${result.lots} • 
+                                    Qty: ${result.quantity}
                                 </div>
-                            ` : ''}
+                            ` : `
+                                <div class="text-xs">${result.error}</div>
+                            `}
                         </div>
                     `;
                 });
@@ -1287,88 +1239,11 @@
                 `;
                 
                 resultDiv.innerHTML = html;
-                
-                // Store order IDs globally for refresh function
-                window.currentDeployedOrderIds = deployedOrderIds;
-                
                 updateBasketOrdersDisplay();
                 updateBasketCountDisplay();
-                
-                // Show notification
-                if (summary.failed > 0) {
-                    window.BasketManager.showToast(
-                        `Deployment complete: ${summary.successful} succeeded, ${summary.failed} failed`, 
-                        'warning'
-                    );
-                } else if (summary.results.some(r => r.status === 'PENDING' || r.status === 'OPEN')) {
-                    window.BasketManager.showToast(
-                        `Orders placed. Click 'Refresh Status' to update.`, 
-                        'info'
-                    );
-                } else {
-                    window.BasketManager.showToast(
-                        `All ${summary.successful} orders deployed successfully!`, 
-                        'success'
-                    );
-                }
             },
             (error) => {
                 resultDiv.innerHTML = `<p class="text-center text-red-600 py-4">Error: ${error}</p>`;
-            }
-        );
-    }
-    
-    // Add function to refresh order statuses
-    async function refreshOrderStatuses() {
-        const orderIds = window.currentDeployedOrderIds;
-        if (!orderIds || orderIds.length === 0) {
-            window.BasketManager.showToast('No orders to refresh', 'error');
-            return;
-        }
-        
-        window.BasketManager.showToast('Refreshing order statuses...', 'info');
-        
-        // Call batch status check
-        await window.BasketManager.getBatchOrderStatus(
-            orderIds,
-            (statuses) => {
-                // Update the display with new statuses
-                statuses.forEach(statusData => {
-                    const orderCard = document.querySelector(`[data-order-id="${statusData.order_id}"]`);
-                    if (orderCard && statusData.status) {
-                        const status = statusData.status.status;
-                        const statusMessage = statusData.status.status_message || '';
-                        
-                        // Update status badge
-                        const statusBadge = orderCard.querySelector('.px-2');
-                        if (statusBadge) {
-                            statusBadge.textContent = status;
-                            
-                            // Update colors
-                            statusBadge.className = 'px-2 py-1 text-xs font-bold rounded-full border ';
-                            orderCard.className = 'border-2 rounded-lg p-3 ';
-                            
-                            if (status === 'COMPLETE') {
-                                statusBadge.className += 'bg-green-100 text-green-800';
-                                orderCard.className += 'bg-green-50 border-green-200';
-                            } else if (status === 'REJECTED') {
-                                statusBadge.className += 'bg-red-100 text-red-800';
-                                orderCard.className += 'bg-red-50 border-red-200';
-                            }
-                        }
-                        
-                        // Update status message if exists
-                        const messageDiv = orderCard.querySelector('.mt-2');
-                        if (messageDiv && statusMessage) {
-                            messageDiv.textContent = statusMessage;
-                        }
-                    }
-                });
-                
-                window.BasketManager.showToast('Statuses refreshed!', 'success');
-            },
-            (error) => {
-                window.BasketManager.showToast('Failed to refresh: ' + error, 'error');
             }
         );
     }
