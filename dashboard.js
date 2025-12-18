@@ -1,4 +1,4 @@
-// Dashboard Module - dashboard.js
+// Dashboard Module - dashboard.js (Compact Version)
 
 const DASHBOARD_CONFIG = {
     backendUrl: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
@@ -109,56 +109,56 @@ async function loadPnlSummary() {
 }
 
 function displayPnlSummary(data) {
-    const totalPnlElement = document.getElementById('dashboardTotalPnl');
+    const pnlContainer = document.getElementById('dashboardPnlCards');
     
-    if (!totalPnlElement) return;
+    if (!pnlContainer) return;
     
     const netPnlColor = data.net_pnl >= 0 ? 'text-green-600' : 'text-red-600';
     const netPnlSign = data.net_pnl >= 0 ? '+' : '';
     const grossPnlColor = data.gross_profit >= 0 ? 'text-green-600' : 'text-red-600';
+    const unrealisedColor = data.unrealised_pnl >= 0 ? 'text-blue-600' : 'text-orange-600';
     
-    totalPnlElement.innerHTML = `
-        <div class="space-y-3">
-            <!-- Net P&L - Prominent Display -->
-            <div class="text-center pb-3 border-b-2 border-gray-200">
-                <div class="text-xs text-gray-500 mb-1">Net P&L</div>
-                <div class="text-3xl font-bold ${netPnlColor}">${netPnlSign}₹${data.net_pnl.toFixed(2)}</div>
-            </div>
-            
-            <!-- Detailed Breakdown -->
-            <div class="space-y-2 text-xs">
-                <div class="flex justify-between">
-                    <span class="text-gray-600">Opening Balance:</span>
-                    <span class="font-mono font-semibold text-gray-900">₹${data.opening_balance.toFixed(2)}</span>
-                </div>
-                
-                <div class="flex justify-between">
-                    <span class="text-gray-600">Gross P&L:</span>
-                    <span class="font-mono font-semibold ${grossPnlColor}">₹${data.gross_profit.toFixed(2)}</span>
-                </div>
-                
-                <div class="flex justify-between">
-                    <span class="text-gray-600">Unrealised P&L:</span>
-                    <span class="font-mono font-semibold text-blue-600">₹${data.unrealised_pnl.toFixed(2)}</span>
-                </div>
-                
-                <div class="pt-2 border-t border-gray-200"></div>
-                
-                <div class="flex justify-between">
-                    <span class="text-gray-600">Brokerage:</span>
-                    <span class="font-mono font-semibold text-red-600">₹${data.total_brokerage.toFixed(2)}</span>
-                </div>
-                
-                <div class="flex justify-between">
-                    <span class="text-gray-600">Other Charges:</span>
-                    <span class="font-mono font-semibold text-red-600">₹${data.other_charges.toFixed(2)}</span>
-                </div>
-                
-                <div class="flex justify-between font-semibold">
-                    <span class="text-gray-700">Total Charges:</span>
-                    <span class="font-mono text-red-700">₹${data.total_charges.toFixed(2)}</span>
-                </div>
-            </div>
+    pnlContainer.innerHTML = `
+        <!-- Net P&L Card -->
+        <div class="bg-white border-2 ${data.net_pnl >= 0 ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'} rounded-lg p-3">
+            <div class="text-xs text-gray-600 mb-1">Net P&L</div>
+            <div class="text-2xl font-bold ${netPnlColor}">${netPnlSign}₹${data.net_pnl.toFixed(2)}</div>
+        </div>
+        
+        <!-- Opening Balance Card -->
+        <div class="bg-white border-2 border-gray-200 rounded-lg p-3">
+            <div class="text-xs text-gray-600 mb-1">Opening Balance</div>
+            <div class="text-xl font-bold text-gray-900">₹${data.opening_balance.toFixed(2)}</div>
+        </div>
+        
+        <!-- Gross P&L Card -->
+        <div class="bg-white border-2 border-gray-200 rounded-lg p-3">
+            <div class="text-xs text-gray-600 mb-1">Gross P&L</div>
+            <div class="text-xl font-bold ${grossPnlColor}">₹${data.gross_profit.toFixed(2)}</div>
+        </div>
+        
+        <!-- Unrealised P&L Card -->
+        <div class="bg-white border-2 border-gray-200 rounded-lg p-3">
+            <div class="text-xs text-gray-600 mb-1">Unrealised P&L</div>
+            <div class="text-xl font-bold ${unrealisedColor}">₹${data.unrealised_pnl.toFixed(2)}</div>
+        </div>
+        
+        <!-- Brokerage Card -->
+        <div class="bg-white border-2 border-gray-200 rounded-lg p-3">
+            <div class="text-xs text-gray-600 mb-1">Brokerage</div>
+            <div class="text-xl font-bold text-red-600">₹${data.total_brokerage.toFixed(2)}</div>
+        </div>
+        
+        <!-- Other Charges Card -->
+        <div class="bg-white border-2 border-gray-200 rounded-lg p-3">
+            <div class="text-xs text-gray-600 mb-1">Other Charges</div>
+            <div class="text-xl font-bold text-red-600">₹${data.other_charges.toFixed(2)}</div>
+        </div>
+        
+        <!-- Total Charges Card -->
+        <div class="bg-white border-2 border-red-200 rounded-lg p-3">
+            <div class="text-xs text-gray-600 mb-1">Total Charges</div>
+            <div class="text-xl font-bold text-red-700">₹${data.total_charges.toFixed(2)}</div>
         </div>
     `;
 }
@@ -201,60 +201,36 @@ function displayDashboardPositions(netPositions, dayPositions) {
     
     let html = '';
     
-    // Display NET positions (active)
+    // Display NET positions (active) - COMPACT
     if (netPositions && netPositions.length > 0) {
-        html += '<div class="mb-6"><h3 class="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2"><span class="inline-block w-2 h-2 bg-green-500 rounded-full"></span>Active Positions</h3>';
+        html += '<div class="mb-4"><h3 class="text-xs font-bold text-gray-700 mb-2 flex items-center gap-1"><span class="inline-block w-1.5 h-1.5 bg-green-500 rounded-full"></span>Active Positions</h3>';
         
         netPositions.forEach(position => {
             const pnlColor = position.pnl >= 0 ? 'text-green-600' : 'text-red-600';
             const bgColor = position.pnl >= 0 ? 'bg-green-50' : 'bg-red-50';
             const borderColor = position.pnl >= 0 ? 'border-green-200' : 'border-red-200';
-            const glowClass = position.pnl >= 0 ? 'shadow-green-glow' : 'shadow-red-glow';
             const qtyColor = position.quantity > 0 ? 'text-blue-600' : 'text-orange-600';
-            const qtyLabel = position.quantity > 0 ? 'LONG' : 'SHORT';
+            const qtyLabel = position.quantity > 0 ? 'L' : 'S';
             
             html += `
-                <div class="position-card-active border-2 ${borderColor} ${bgColor} ${glowClass} rounded-lg p-4 mb-3 transition-all hover:scale-102">
-                    <!-- Header Row -->
-                    <div class="flex items-center justify-between mb-3">
-                        <div class="flex-1">
-                            <div class="flex items-center gap-2 mb-1">
-                                <span class="px-2 py-0.5 ${position.quantity > 0 ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'} text-xs font-bold rounded">${qtyLabel}</span>
-                                <span class="font-mono text-base font-bold text-gray-900">${position.tradingsymbol}</span>
+                <div class="border ${borderColor} ${bgColor} rounded-lg p-2 mb-1.5 hover:shadow-sm transition-all">
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-1.5 mb-0.5">
+                                <span class="px-1.5 py-0.5 ${position.quantity > 0 ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'} text-xs font-bold rounded">${qtyLabel}</span>
+                                <span class="font-mono text-xs font-bold text-gray-900 truncate">${position.tradingsymbol}</span>
                             </div>
-                            <div class="text-xs text-gray-600">
-                                <span class="badge badge-sm badge-primary">${position.product}</span>
-                                <span class="mx-1">•</span>
-                                <span class="badge badge-sm badge-secondary">${position.exchange}</span>
+                            <div class="flex items-center gap-2 text-xs text-gray-600">
+                                <span class="font-mono ${qtyColor} font-semibold">${Math.abs(position.quantity)}</span>
+                                <span class="text-gray-400">@</span>
+                                <span class="font-mono">₹${position.average_price.toFixed(2)}</span>
+                                <span class="text-gray-400">→</span>
+                                <span class="font-mono">₹${position.last_price.toFixed(2)}</span>
                             </div>
                         </div>
                         <div class="text-right">
-                            <div class="text-xs text-gray-500">P&L</div>
-                            <div class="font-bold text-xl ${pnlColor}">₹${position.pnl.toFixed(2)}</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Details Grid -->
-                    <div class="grid grid-cols-2 gap-x-4 gap-y-2 pt-3 border-t border-gray-200">
-                        <div>
-                            <div class="text-xs text-gray-500">Quantity</div>
-                            <div class="font-mono font-semibold ${qtyColor}">${Math.abs(position.quantity)}</div>
-                        </div>
-                        <div>
-                            <div class="text-xs text-gray-500">Avg Price</div>
-                            <div class="font-mono font-semibold text-gray-900">₹${position.average_price.toFixed(2)}</div>
-                        </div>
-                        <div>
-                            <div class="text-xs text-gray-500">Last Price</div>
-                            <div class="font-mono font-semibold text-gray-900">₹${position.last_price.toFixed(2)}</div>
-                        </div>
-                        <div>
-                            <div class="text-xs text-gray-500">Day Qty</div>
-                            <div class="font-mono text-sm text-gray-700">
-                                ${position.day_buy_quantity > 0 ? `<span class="text-green-600">+${position.day_buy_quantity}</span>` : ''}
-                                ${position.day_sell_quantity > 0 ? `<span class="text-red-600">-${position.day_sell_quantity}</span>` : ''}
-                                ${position.day_buy_quantity === 0 && position.day_sell_quantity === 0 ? '-' : ''}
-                            </div>
+                            <div class="font-bold text-sm ${pnlColor}">₹${position.pnl.toFixed(2)}</div>
+                            <div class="text-xs text-gray-500">${position.product}</div>
                         </div>
                     </div>
                 </div>
@@ -264,36 +240,22 @@ function displayDashboardPositions(netPositions, dayPositions) {
         html += '</div>';
     }
     
-    // Display DAY positions (closed - greyed out)
+    // Display DAY positions (closed) - COMPACT
     if (dayPositions && dayPositions.length > 0) {
-        html += '<div><h3 class="text-sm font-bold text-gray-400 mb-3 flex items-center gap-2"><span class="inline-block w-2 h-2 bg-gray-400 rounded-full"></span>Closed Today</h3>';
+        html += '<div><h3 class="text-xs font-bold text-gray-400 mb-2 flex items-center gap-1"><span class="inline-block w-1.5 h-1.5 bg-gray-400 rounded-full"></span>Closed Today</h3>';
         
         dayPositions.forEach(position => {
             const pnlColor = position.pnl >= 0 ? 'text-gray-600' : 'text-gray-700';
             
             html += `
-                <div class="border-2 border-gray-200 bg-gray-50 rounded-lg p-4 mb-3 opacity-70">
-                    <div class="flex items-center justify-between mb-2">
+                <div class="border border-gray-200 bg-gray-50 rounded-lg p-2 mb-1.5 opacity-60">
+                    <div class="flex items-center justify-between">
                         <div class="flex-1">
-                            <div class="font-mono text-sm font-semibold text-gray-600">${position.tradingsymbol}</div>
-                            <div class="text-xs text-gray-500 mt-1">
-                                <span class="badge badge-sm badge-secondary">${position.product}</span>
-                            </div>
+                            <div class="font-mono text-xs font-semibold text-gray-600">${position.tradingsymbol}</div>
+                            <div class="text-xs text-gray-500">${position.product}</div>
                         </div>
                         <div class="text-right">
-                            <div class="text-xs text-gray-400">P&L</div>
-                            <div class="font-bold text-lg ${pnlColor}">₹${position.pnl.toFixed(2)}</div>
-                        </div>
-                    </div>
-                    
-                    <div class="grid grid-cols-2 gap-x-4 gap-y-1 pt-2 border-t border-gray-300 text-xs">
-                        <div>
-                            <span class="text-gray-400">Buy Qty:</span>
-                            <span class="font-mono text-gray-600">${position.buy_quantity}</span>
-                        </div>
-                        <div>
-                            <span class="text-gray-400">Sell Qty:</span>
-                            <span class="font-mono text-gray-600">${position.sell_quantity}</span>
+                            <div class="font-bold text-sm ${pnlColor}">₹${position.pnl.toFixed(2)}</div>
                         </div>
                     </div>
                 </div>
@@ -304,7 +266,7 @@ function displayDashboardPositions(netPositions, dayPositions) {
     }
     
     if (netPositions.length === 0 && dayPositions.length === 0) {
-        html = '<p class="text-center text-gray-500 py-8">No positions found</p>';
+        html = '<p class="text-center text-gray-500 py-6 text-sm">No positions found</p>';
     }
     
     positionsContainer.innerHTML = html;
@@ -313,7 +275,7 @@ function displayDashboardPositions(netPositions, dayPositions) {
 function showPositionsError(error) {
     const positionsContainer = document.getElementById('dashboardPositionsContainer');
     if (positionsContainer) {
-        positionsContainer.innerHTML = `<p class="text-center text-red-600 py-8">Error: ${error}</p>`;
+        positionsContainer.innerHTML = `<p class="text-center text-red-600 py-6 text-sm">Error: ${error}</p>`;
     }
 }
 
@@ -354,7 +316,7 @@ function displayDashboardOrders(orders) {
     if (!ordersContainer) return;
     
     if (!orders || orders.length === 0) {
-        ordersContainer.innerHTML = '<p class="text-center text-gray-500 py-8">No orders found</p>';
+        ordersContainer.innerHTML = '<p class="text-center text-gray-500 py-6 text-sm">No orders found</p>';
         return;
     }
     
@@ -372,8 +334,7 @@ function displayDashboardOrders(orders) {
                 const date = new Date(order.order_timestamp);
                 timeStr = date.toLocaleTimeString('en-US', { 
                     hour: '2-digit', 
-                    minute: '2-digit',
-                    second: '2-digit'
+                    minute: '2-digit'
                 });
             } catch (e) {
                 timeStr = order.order_timestamp;
@@ -381,50 +342,30 @@ function displayDashboardOrders(orders) {
         }
         
         html += `
-            <div class="border-2 border-gray-200 rounded-lg p-3 mb-2 hover:shadow-md transition-all">
-                <div class="flex items-start justify-between mb-2">
-                    <div class="flex-1">
-                        <div class="flex items-center gap-2 mb-1">
-                            <span class="px-2 py-1 ${typeBg} ${typeColor} text-xs font-bold rounded">${order.transaction_type}</span>
-                            <span class="font-mono text-sm font-bold text-gray-900">${order.display_symbol}</span>
-                        </div>
-                        <div class="text-xs text-gray-600">
-                            <span class="badge badge-sm badge-info">${order.product}</span>
-                            <span class="mx-1">•</span>
-                            <span>${order.variety}</span>
-                            <span class="mx-1">•</span>
-                            <span>${order.order_type}</span>
-                        </div>
+            <div class="border border-gray-200 rounded-lg p-2 mb-1.5 hover:shadow-sm transition-all">
+                <div class="flex items-center justify-between gap-2 mb-1">
+                    <div class="flex items-center gap-1.5 flex-1 min-w-0">
+                        <span class="px-1.5 py-0.5 ${typeBg} ${typeColor} text-xs font-bold rounded">${order.transaction_type === 'BUY' ? 'B' : 'S'}</span>
+                        <span class="font-mono text-xs font-bold text-gray-900 truncate">${order.display_symbol}</span>
                     </div>
-                    <div class="text-right">
-                        <span class="inline-block px-2 py-1 text-xs font-bold rounded ${statusColor}">${order.status}</span>
+                    <span class="px-1.5 py-0.5 text-xs font-bold rounded ${statusColor}">${order.status}</span>
+                </div>
+                
+                <div class="flex items-center justify-between text-xs text-gray-600 mb-1">
+                    <div class="flex items-center gap-2">
+                        <span><span class="text-gray-500">Qty:</span> <span class="font-semibold">${order.quantity || 0}</span></span>
+                        <span class="text-gray-400">•</span>
+                        <span class="text-green-600 font-semibold">${order.filled_quantity || 0}</span>
+                        ${order.pending_quantity > 0 ? `<span class="text-orange-600 font-semibold">(${order.pending_quantity})</span>` : ''}
+                    </div>
+                    <div class="font-mono text-gray-700">
+                        ${order.average_price ? `₹${order.average_price}` : order.price ? `₹${order.price}` : '-'}
                     </div>
                 </div>
                 
-                <div class="grid grid-cols-3 gap-2 text-xs text-gray-600 mb-2">
-                    <div>
-                        <span class="text-gray-500">Qty:</span> 
-                        <span class="font-semibold">${order.quantity || 0}</span>
-                    </div>
-                    <div>
-                        <span class="text-gray-500">Filled:</span> 
-                        <span class="font-semibold text-green-600">${order.filled_quantity || 0}</span>
-                    </div>
-                    <div>
-                        <span class="text-gray-500">Pending:</span> 
-                        <span class="font-semibold text-orange-600">${order.pending_quantity || 0}</span>
-                    </div>
-                </div>
-                
-                <div class="grid grid-cols-3 gap-2 text-xs text-gray-600 mb-2">
-                    ${order.price ? `<div><span class="text-gray-500">Price:</span> <span class="font-mono">₹${order.price}</span></div>` : '<div></div>'}
-                    ${order.trigger_price ? `<div><span class="text-gray-500">Trigger:</span> <span class="font-mono">₹${order.trigger_price}</span></div>` : '<div></div>'}
-                    ${order.average_price ? `<div><span class="text-gray-500">Avg:</span> <span class="font-mono">₹${order.average_price}</span></div>` : '<div></div>'}
-                </div>
-                
-                <div class="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-gray-200">
+                <div class="flex items-center justify-between text-xs text-gray-500">
+                    <span>${order.product} • ${order.order_type}</span>
                     <span>🕐 ${timeStr}</span>
-                    <span class="font-mono">#${order.order_id}</span>
                 </div>
             </div>
         `;
@@ -449,7 +390,7 @@ function getOrderStatusColor(status) {
 function showOrdersError(error) {
     const ordersContainer = document.getElementById('dashboardOrdersContainer');
     if (ordersContainer) {
-        ordersContainer.innerHTML = `<p class="text-center text-red-600 py-8">Error: ${error}</p>`;
+        ordersContainer.innerHTML = `<p class="text-center text-red-600 py-6 text-sm">Error: ${error}</p>`;
     }
 }
 
@@ -457,7 +398,7 @@ function showDashboardError(message) {
     const positionsContainer = document.getElementById('dashboardPositionsContainer');
     const ordersContainer = document.getElementById('dashboardOrdersContainer');
     
-    const errorHtml = `<p class="text-center text-red-600 py-8">${message}</p>`;
+    const errorHtml = `<p class="text-center text-red-600 py-6 text-sm">${message}</p>`;
     
     if (positionsContainer) positionsContainer.innerHTML = errorHtml;
     if (ordersContainer) ordersContainer.innerHTML = errorHtml;
