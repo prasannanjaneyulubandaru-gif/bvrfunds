@@ -6,6 +6,7 @@ const CONFIG = {
         : 'https://shark-app-hyd9r.ondigitalocean.app'
 };
 
+
 // State management
 let state = {
     apiKey: '',
