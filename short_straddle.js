@@ -199,25 +199,8 @@ async function checkStraddleMargin() {
         const userId = sessionStorage.getItem('user_id');
         
         // Prepare orders for margin check
+        // IMPORTANT: Hedges must be placed first to reduce margin requirement
         const orders = [
-            {
-                exchange: 'NFO',
-                tradingsymbol: currentStraddleStrategy.atm_call.symbol,
-                transaction_type: 'SELL',
-                lots: currentStraddleStrategy.lots,
-                product: 'MIS',
-                order_type: 'MARKET',
-                price: 0
-            },
-            {
-                exchange: 'NFO',
-                tradingsymbol: currentStraddleStrategy.atm_put.symbol,
-                transaction_type: 'SELL',
-                lots: currentStraddleStrategy.lots,
-                product: 'MIS',
-                order_type: 'MARKET',
-                price: 0
-            },
             {
                 exchange: 'NFO',
                 tradingsymbol: currentStraddleStrategy.hedge_call.symbol,
@@ -231,6 +214,24 @@ async function checkStraddleMargin() {
                 exchange: 'NFO',
                 tradingsymbol: currentStraddleStrategy.hedge_put.symbol,
                 transaction_type: 'BUY',
+                lots: currentStraddleStrategy.lots,
+                product: 'MIS',
+                order_type: 'MARKET',
+                price: 0
+            },
+            {
+                exchange: 'NFO',
+                tradingsymbol: currentStraddleStrategy.atm_call.symbol,
+                transaction_type: 'SELL',
+                lots: currentStraddleStrategy.lots,
+                product: 'MIS',
+                order_type: 'MARKET',
+                price: 0
+            },
+            {
+                exchange: 'NFO',
+                tradingsymbol: currentStraddleStrategy.atm_put.symbol,
+                transaction_type: 'SELL',
                 lots: currentStraddleStrategy.lots,
                 product: 'MIS',
                 order_type: 'MARKET',
@@ -299,23 +300,8 @@ async function deployStraddle() {
         const lotSize = currentStraddleStrategy.atm_call.lot_size;
         
         // Prepare orders
+        // IMPORTANT: Hedges must be placed first to reduce margin requirement
         const orders = [
-            {
-                symbol: currentStraddleStrategy.atm_call.symbol,
-                token: currentStraddleStrategy.atm_call.token,
-                transaction_type: 'SELL',
-                quantity: lots * lotSize,
-                product: 'MIS',
-                label: 'ATM CE (Sell)'
-            },
-            {
-                symbol: currentStraddleStrategy.atm_put.symbol,
-                token: currentStraddleStrategy.atm_put.token,
-                transaction_type: 'SELL',
-                quantity: lots * lotSize,
-                product: 'MIS',
-                label: 'ATM PE (Sell)'
-            },
             {
                 symbol: currentStraddleStrategy.hedge_call.symbol,
                 token: currentStraddleStrategy.hedge_call.token,
@@ -331,6 +317,22 @@ async function deployStraddle() {
                 quantity: lots * lotSize,
                 product: 'MIS',
                 label: 'Hedge PE (Buy)'
+            },
+            {
+                symbol: currentStraddleStrategy.atm_call.symbol,
+                token: currentStraddleStrategy.atm_call.token,
+                transaction_type: 'SELL',
+                quantity: lots * lotSize,
+                product: 'MIS',
+                label: 'ATM CE (Sell)'
+            },
+            {
+                symbol: currentStraddleStrategy.atm_put.symbol,
+                token: currentStraddleStrategy.atm_put.token,
+                transaction_type: 'SELL',
+                quantity: lots * lotSize,
+                product: 'MIS',
+                label: 'ATM PE (Sell)'
             }
         ];
         
