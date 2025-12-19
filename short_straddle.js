@@ -303,7 +303,7 @@ async function deployStraddle() {
         // IMPORTANT: Hedges must be placed first to reduce margin requirement
         const orders = [
             {
-                symbol: currentStraddleStrategy.hedge_call.symbol,
+                tradingsymbol: currentStraddleStrategy.hedge_call.symbol,
                 token: currentStraddleStrategy.hedge_call.token,
                 transaction_type: 'BUY',
                 quantity: lots * lotSize,
@@ -311,7 +311,7 @@ async function deployStraddle() {
                 label: 'Hedge CE (Buy)'
             },
             {
-                symbol: currentStraddleStrategy.hedge_put.symbol,
+                tradingsymbol: currentStraddleStrategy.hedge_put.symbol,
                 token: currentStraddleStrategy.hedge_put.token,
                 transaction_type: 'BUY',
                 quantity: lots * lotSize,
@@ -319,7 +319,7 @@ async function deployStraddle() {
                 label: 'Hedge PE (Buy)'
             },
             {
-                symbol: currentStraddleStrategy.atm_call.symbol,
+                tradingsymbol: currentStraddleStrategy.atm_call.symbol,
                 token: currentStraddleStrategy.atm_call.token,
                 transaction_type: 'SELL',
                 quantity: lots * lotSize,
@@ -327,7 +327,7 @@ async function deployStraddle() {
                 label: 'ATM CE (Sell)'
             },
             {
-                symbol: currentStraddleStrategy.atm_put.symbol,
+                tradingsymbol: currentStraddleStrategy.atm_put.symbol,
                 token: currentStraddleStrategy.atm_put.token,
                 transaction_type: 'SELL',
                 quantity: lots * lotSize,
