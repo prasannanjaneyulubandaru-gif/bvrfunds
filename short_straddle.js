@@ -358,7 +358,9 @@ async function deployStraddle() {
             // Start monitoring straddle status
             startStraddleMonitoring();
         } else {
-            resultDiv.innerHTML = `<div class="text-center py-4 text-red-600">Error: ${data.error || 'Failed to deploy strategy'}</div>`;
+            resultDiv.innerHTML = `<div class="text-center py-4 text-red-600">Error: ${data.error || 'Failed to deploy strategy'}
+                ${data.debug_info ? `<div class="mt-4 text-xs text-left bg-gray-100 p-3 rounded"><strong>Debug Info:</strong><pre>${JSON.stringify(data.debug_info, null, 2)}</pre></div>` : ''}
+            </div>`;
         }
     } catch (error) {
         console.error('Deploy error:', error);
