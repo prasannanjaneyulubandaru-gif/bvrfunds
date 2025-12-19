@@ -26,11 +26,43 @@ function initializeChartMonitor() {
     chartMonitorInitialized = true;
 }
 
+// Check monitor status on page load
+async function checkInitialMonitorStatus() {
+    try {
+        const userId = sessionStorage.getItem('user_id');
+        if (!userId) return;
+        
+        console.log('Checking initial monitor status...');
+        
+        const response = await fetch(`${CHART_CONFIG.backendUrl}/api/monitor-status`, {
+            headers: { 'X-User-ID': userId }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            monitorState.isRunning = data.running;
+            updateMonitorUI(data.running);
+            
+            if (data.running) {
+                addLog('Monitor was already running', 'info');
+                startStatusPolling();
+            } else {
+                addLog('Monitor is not running', 'info');
+            }
+        }
+    } catch (error) {
+        console.error('Initial status check error:', error);
+        addLog('Failed to check monitor status', 'error');
+    }
+}
+
 // Auto-initialize on page load if elements exist
 window.addEventListener('load', () => {
     setTimeout(() => {
         if (document.getElementById('chartMonitorPage')) {
             initializeChartMonitor();
+            checkInitialMonitorStatus();
         }
     }, 500);
 });
@@ -82,11 +114,6 @@ function setupChartMonitorListeners() {
 // ===========================================
 
 async function startMonitor() {
-    if (monitorState.isRunning) {
-        addLog('Monitor is already running', 'info');
-        return;
-    }
-    
     const instrumentToken = document.getElementById('instrumentToken').value;
     const interval = document.getElementById('intervalSelect').value;
     const threshold = document.getElementById('thresholdPercent').value;
@@ -100,6 +127,8 @@ async function startMonitor() {
     
     try {
         const userId = sessionStorage.getItem('user_id');
+        
+        addLog('Starting monitor...', 'info');
         
         const response = await fetch(`${CHART_CONFIG.backendUrl}/api/start-monitor`, {
             method: 'POST',
@@ -142,6 +171,8 @@ async function stopMonitor() {
     try {
         const userId = sessionStorage.getItem('user_id');
         
+        addLog('Stopping monitor...', 'info');
+        
         const response = await fetch(`${CHART_CONFIG.backendUrl}/api/stop-monitor`, {
             method: 'POST',
             headers: {
@@ -156,7 +187,7 @@ async function stopMonitor() {
             monitorState.isRunning = false;
             updateMonitorUI(false);
             stopStatusPolling();
-            addLog('Monitor stopped', 'info');
+            addLog('Monitor stopped successfully', 'success');
         } else {
             throw new Error(data.error || 'Failed to stop monitor');
         }
@@ -253,10 +284,17 @@ async function testEmail() {
 // ===========================================
 
 function startStatusPolling() {
+    // Clear any existing interval
+    stopStatusPolling();
+    
     // Poll every 10 seconds to check if monitor is still running
     monitorState.intervalId = setInterval(async () => {
         try {
             const userId = sessionStorage.getItem('user_id');
+            if (!userId) {
+                stopStatusPolling();
+                return;
+            }
             
             const response = await fetch(`${CHART_CONFIG.backendUrl}/api/monitor-status`, {
                 headers: { 'X-User-ID': userId }
@@ -270,6 +308,7 @@ function startStatusPolling() {
                     monitorState.isRunning = false;
                     updateMonitorUI(false);
                     addLog('Monitor stopped on server', 'info');
+                    stopStatusPolling();
                 }
             }
         } catch (error) {
@@ -293,6 +332,11 @@ function updateMonitorUI(isRunning) {
     const statusDiv = document.getElementById('monitorStatus');
     const startBtn = document.getElementById('startMonitorBtn');
     const stopBtn = document.getElementById('stopMonitorBtn');
+    
+    if (!statusDiv || !startBtn || !stopBtn) {
+        console.error('UI elements not found');
+        return;
+    }
     
     if (isRunning) {
         // Update status indicator
@@ -353,3 +397,11 @@ function addLog(message, type = 'info') {
         logContainer.removeChild(logContainer.lastChild);
     }
 }
+
+// ===========================================
+// CLEANUP ON PAGE UNLOAD
+// ===========================================
+
+window.addEventListener('beforeunload', () => {
+    stopStatusPolling();
+});
