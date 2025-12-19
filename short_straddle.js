@@ -204,7 +204,7 @@ async function checkStraddleMargin() {
                 exchange: 'NFO',
                 tradingsymbol: currentStraddleStrategy.atm_call.symbol,
                 transaction_type: 'SELL',
-                quantity: currentStraddleStrategy.lots * currentStraddleStrategy.atm_call.lot_size,
+                lots: currentStraddleStrategy.lots,
                 product: 'MIS',
                 order_type: 'MARKET',
                 price: 0
@@ -213,7 +213,7 @@ async function checkStraddleMargin() {
                 exchange: 'NFO',
                 tradingsymbol: currentStraddleStrategy.atm_put.symbol,
                 transaction_type: 'SELL',
-                quantity: currentStraddleStrategy.lots * currentStraddleStrategy.atm_put.lot_size,
+                lots: currentStraddleStrategy.lots,
                 product: 'MIS',
                 order_type: 'MARKET',
                 price: 0
@@ -222,7 +222,7 @@ async function checkStraddleMargin() {
                 exchange: 'NFO',
                 tradingsymbol: currentStraddleStrategy.hedge_call.symbol,
                 transaction_type: 'BUY',
-                quantity: currentStraddleStrategy.lots * currentStraddleStrategy.hedge_call.lot_size,
+                lots: currentStraddleStrategy.lots,
                 product: 'MIS',
                 order_type: 'MARKET',
                 price: 0
@@ -231,7 +231,7 @@ async function checkStraddleMargin() {
                 exchange: 'NFO',
                 tradingsymbol: currentStraddleStrategy.hedge_put.symbol,
                 transaction_type: 'BUY',
-                quantity: currentStraddleStrategy.lots * currentStraddleStrategy.hedge_put.lot_size,
+                lots: currentStraddleStrategy.lots,
                 product: 'MIS',
                 order_type: 'MARKET',
                 price: 0
@@ -250,23 +250,22 @@ async function checkStraddleMargin() {
         const data = await response.json();
         
         if (response.ok && data.success) {
-            const marginInfo = data.margin_info;
             const html = `
                 <div class="bg-white border-2 border-gray-200 rounded-lg p-4">
                     <h4 class="font-bold text-gray-900 mb-3">Margin Requirement</h4>
                     <div class="space-y-2">
                         <div class="flex justify-between text-sm">
                             <span class="font-semibold">Available Balance:</span>
-                            <span class="font-bold text-green-600">₹${marginInfo.available.toFixed(2)}</span>
+                            <span class="font-bold text-green-600">₹${data.available_balance.toFixed(2)}</span>
                         </div>
                         <div class="flex justify-between text-sm">
                             <span class="font-semibold">Required Margin:</span>
-                            <span class="font-bold text-blue-600">₹${marginInfo.required.toFixed(2)}</span>
+                            <span class="font-bold text-blue-600">₹${data.total_required.toFixed(2)}</span>
                         </div>
                         <div class="flex justify-between text-sm pt-2 border-t-2 border-gray-300">
                             <span class="font-semibold">Status:</span>
-                            <span class="font-bold ${marginInfo.sufficient ? 'text-green-600' : 'text-red-600'}">
-                                ${marginInfo.sufficient ? '✓ Sufficient' : '✗ Insufficient'}
+                            <span class="font-bold ${data.sufficient ? 'text-green-600' : 'text-red-600'}">
+                                ${data.sufficient ? '✓ Sufficient' : '✗ Insufficient'}
                             </span>
                         </div>
                     </div>
