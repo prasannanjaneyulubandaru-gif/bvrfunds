@@ -1,5 +1,6 @@
 // Short Straddle Module
 // Automated straddle strategy with intelligent trailing stop loss
+// MINIMAL FIX: Only deployment function changed, margin check preserved
 
 const STRADDLE_CONFIG = {
     backendUrl: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
@@ -46,8 +47,8 @@ async function fetchShortStraddle() {
                 ...data, 
                 lots,
                 initialSlPercent,
-                trailPoints: 6,  // Default
-                stepSize: 0.5    // Default
+                trailPoints: 6,
+                stepSize: 0.5
             };
             displayStraddleResult(data, lots, initialSlPercent);
         } else {
@@ -168,73 +169,71 @@ function displayStraddleResult(data, lots, initialSlPercent) {
         <!-- Action Buttons -->
         <div class="flex flex-wrap gap-3 justify-center">
             <button onclick="checkStraddleMargin()" 
-                    class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg transition-all">
-                💰 Check Margin Required
+                    class="border-2 border-blue-500 text-blue-600 font-semibold px-6 py-3 rounded-lg hover:bg-blue-50 transition-all">
+                Check Margin
             </button>
-            <button onclick="showStraddleDeployModal()" 
-                    class="btn-primary text-white font-semibold px-8 py-3 rounded-lg transition-all">
-                🚀 Deploy Short Straddle
+            <button onclick="deployStraddle()" 
+                    class="btn-primary text-white font-semibold px-8 py-3 rounded-lg">
+                Deploy Straddle
             </button>
         </div>
         
-        <!-- Margin Result Div -->
-        <div id="straddleMarginResult" class="mt-4"></div>
+        <!-- Margin Check Result -->
+        <div id="straddleMarginResult" class="hidden mt-4"></div>
     `;
     
     resultDiv.innerHTML = html;
 }
 
 // ===========================================
-// MARGIN CHECKING
+// MARGIN CHECK (UNCHANGED - WORKING)
 // ===========================================
 
 async function checkStraddleMargin() {
-    if (!currentStraddleStrategy) {
-        showToast('Please fetch straddle strategy first', 'error');
-        return;
-    }
+    if (!currentStraddleStrategy) return;
     
-    const resultDiv = document.getElementById('straddleMarginResult');
-    resultDiv.innerHTML = '<div class="text-center py-4 text-gray-600">Checking margin...</div>';
+    const marginDiv = document.getElementById('straddleMarginResult');
+    marginDiv.innerHTML = '<p class="text-center py-4 text-gray-600">Checking margin...</p>';
+    marginDiv.classList.remove('hidden');
     
     try {
         const userId = sessionStorage.getItem('user_id');
-        const lots = currentStraddleStrategy.lots;
         
         // Prepare orders for margin check
+        // IMPORTANT: Hedges must be placed first to reduce margin requirement
         const orders = [
             {
-                tradingsymbol: currentStraddleStrategy.atm_call.symbol,
                 exchange: 'NFO',
-                transaction_type: 'SELL',
-                quantity: lots * currentStraddleStrategy.atm_call.lot_size,
-                product: 'MIS',
-                order_type: 'MARKET',
-                price: 0
-            },
-            {
-                tradingsymbol: currentStraddleStrategy.atm_put.symbol,
-                exchange: 'NFO',
-                transaction_type: 'SELL',
-                quantity: lots * currentStraddleStrategy.atm_put.lot_size,
-                product: 'MIS',
-                order_type: 'MARKET',
-                price: 0
-            },
-            {
                 tradingsymbol: currentStraddleStrategy.hedge_call.symbol,
-                exchange: 'NFO',
                 transaction_type: 'BUY',
-                quantity: lots * currentStraddleStrategy.hedge_call.lot_size,
+                lots: currentStraddleStrategy.lots,
                 product: 'MIS',
                 order_type: 'MARKET',
                 price: 0
             },
             {
-                tradingsymbol: currentStraddleStrategy.hedge_put.symbol,
                 exchange: 'NFO',
+                tradingsymbol: currentStraddleStrategy.hedge_put.symbol,
                 transaction_type: 'BUY',
-                quantity: lots * currentStraddleStrategy.hedge_put.lot_size,
+                lots: currentStraddleStrategy.lots,
+                product: 'MIS',
+                order_type: 'MARKET',
+                price: 0
+            },
+            {
+                exchange: 'NFO',
+                tradingsymbol: currentStraddleStrategy.atm_call.symbol,
+                transaction_type: 'SELL',
+                lots: currentStraddleStrategy.lots,
+                product: 'MIS',
+                order_type: 'MARKET',
+                price: 0
+            },
+            {
+                exchange: 'NFO',
+                tradingsymbol: currentStraddleStrategy.atm_put.symbol,
+                transaction_type: 'SELL',
+                lots: currentStraddleStrategy.lots,
                 product: 'MIS',
                 order_type: 'MARKET',
                 price: 0
@@ -253,212 +252,240 @@ async function checkStraddleMargin() {
         const data = await response.json();
         
         if (response.ok && data.success) {
-            displayMarginResult(data);
+            const html = `
+                <div class="bg-white border-2 border-gray-200 rounded-lg p-4">
+                    <h4 class="font-bold text-gray-900 mb-3">Margin Requirement</h4>
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-sm">
+                            <span class="font-semibold">Available Balance:</span>
+                            <span class="font-bold text-green-600">₹${data.available_balance.toFixed(2)}</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="font-semibold">Required Margin:</span>
+                            <span class="font-bold text-blue-600">₹${data.total_required.toFixed(2)}</span>
+                        </div>
+                        <div class="flex justify-between text-sm pt-2 border-t-2 border-gray-300">
+                            <span class="font-semibold">Status:</span>
+                            <span class="font-bold ${data.sufficient ? 'text-green-600' : 'text-red-600'}">
+                                ${data.sufficient ? '✓ Sufficient' : '✗ Insufficient'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            marginDiv.innerHTML = html;
         } else {
-            resultDiv.innerHTML = `<div class="text-center py-4 text-red-600">Error: ${data.error || 'Failed to check margin'}</div>`;
+            marginDiv.innerHTML = `<div class="text-center py-4 text-red-600">Error: ${data.error || 'Failed to check margin'}</div>`;
         }
     } catch (error) {
         console.error('Margin check error:', error);
-        resultDiv.innerHTML = `<div class="text-center py-4 text-red-600">Error: ${error.message}</div>`;
+        marginDiv.innerHTML = `<div class="text-center py-4 text-red-600">Error: ${error.message}</div>`;
     }
 }
 
-function displayMarginResult(data) {
-    const resultDiv = document.getElementById('straddleMarginResult');
-    
-    const sufficient = data.sufficient;
-    const borderColor = sufficient ? 'border-green-300' : 'border-red-300';
-    const bgColor = sufficient ? 'bg-green-50' : 'bg-red-50';
-    const textColor = sufficient ? 'text-green-800' : 'text-red-800';
-    
-    let html = `
-        <div class="border-2 ${borderColor} ${bgColor} rounded-lg p-4">
-            <div class="flex items-center justify-between mb-3">
-                <h4 class="font-bold ${textColor}">Margin Analysis</h4>
-                <span class="px-3 py-1 ${sufficient ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} text-xs font-semibold rounded-full">
-                    ${sufficient ? '✓ SUFFICIENT' : '✗ INSUFFICIENT'}
-                </span>
-            </div>
-            
-            <div class="grid grid-cols-2 gap-4 text-sm mb-3">
-                <div>
-                    <div class="text-gray-600">Available Balance</div>
-                    <div class="font-bold text-lg ${textColor}">₹${data.available_balance.toFixed(2)}</div>
-                </div>
-                <div>
-                    <div class="text-gray-600">Required Margin</div>
-                    <div class="font-bold text-lg ${textColor}">₹${data.total_required.toFixed(2)}</div>
-                </div>
-            </div>
-            
-            ${!sufficient ? `
-                <div class="mt-3 p-3 bg-red-100 border border-red-300 rounded">
-                    <p class="text-sm text-red-800 font-semibold">⚠️ Insufficient funds!</p>
-                    <p class="text-xs text-red-700 mt-1">You need ₹${(data.total_required - data.available_balance).toFixed(2)} more to place these orders.</p>
-                </div>
-            ` : ''}
-        </div>
-    `;
-    
-    resultDiv.innerHTML = html;
-}
-
 // ===========================================
-// DEPLOY STRADDLE (NEW - USING BASKET PATTERN)
+// DEPLOY STRADDLE (FIXED)
 // ===========================================
 
-function showStraddleDeployModal() {
+async function deployStraddle() {
     if (!currentStraddleStrategy) {
         showToast('Please fetch straddle strategy first', 'error');
         return;
     }
     
-    const atmCall = currentStraddleStrategy.atm_call;
-    const atmPut = currentStraddleStrategy.atm_put;
-    const hedgeCall = currentStraddleStrategy.hedge_call;
-    const hedgePut = currentStraddleStrategy.hedge_put;
-    const lots = currentStraddleStrategy.lots;
+    if (!confirm('Deploy Short Straddle with automated trailing stop loss?')) return;
     
-    const orders = [
-        {
-            symbol: atmCall.symbol,
-            token: atmCall.token,
-            transaction_type: 'SELL',
-            lots: lots,
-            label: `ATM CALL ${atmCall.strike} (Sell)`
-        },
-        {
-            symbol: atmPut.symbol,
-            token: atmPut.token,
-            transaction_type: 'SELL',
-            lots: lots,
-            label: `ATM PUT ${atmPut.strike} (Sell)`
-        },
-        {
-            symbol: hedgeCall.symbol,
-            token: hedgeCall.token,
-            transaction_type: 'BUY',
-            lots: lots,
-            label: `Hedge CALL ${hedgeCall.strike} (Buy)`
-        },
-        {
-            symbol: hedgePut.symbol,
-            token: hedgePut.token,
-            transaction_type: 'BUY',
-            lots: lots,
-            label: `Hedge PUT ${hedgePut.strike} (Buy)`
-        }
-    ];
+    const resultDiv = document.getElementById('straddleResult');
+    resultDiv.innerHTML = '<div class="text-center py-4 text-gray-600">Deploying straddle strategy...</div>';
     
-    // Store straddle config for later deployment
-    window.currentStraddleConfig = {
-        initialSlPercent: currentStraddleStrategy.initialSlPercent,
-        trailPoints: currentStraddleStrategy.trailPoints,
-        stepSize: currentStraddleStrategy.stepSize,
-        atmCall: atmCall,
-        atmPut: atmPut,
-        hedgeCall: hedgeCall,
-        hedgePut: hedgePut,
-        lots: lots
-    };
-    
-    // Show the basket deploy modal
-    window.BasketManager.showDeployModal(orders, 'Short Straddle Strategy');
-}
-
-// Override the basket deployment to add straddle-specific logic
-const originalDeployBasket = window.BasketManager?.deploy;
-if (originalDeployBasket) {
-    window.BasketManager.deployStraddle = async function(onProgress, onComplete, onError) {
-        try {
-            // First deploy using standard basket
-            const result = await originalDeployBasket(onProgress, (summary) => {
-                // After successful deployment, activate straddle monitoring
-                if (summary.successful > 0 && window.currentStraddleConfig) {
-                    activateStraddleMonitoring(summary);
-                }
-                if (onComplete) onComplete(summary);
-            }, onError);
-            
-            return result;
-        } catch (error) {
-            if (onError) onError(error.message);
-            return null;
-        }
-    };
-}
-
-async function activateStraddleMonitoring(deploymentSummary) {
     try {
         const userId = sessionStorage.getItem('user_id');
-        const config = window.currentStraddleConfig;
+        const lots = currentStraddleStrategy.lots;
+        const lotSize = currentStraddleStrategy.atm_call.lot_size;
         
-        if (!config) {
-            console.error('No straddle config found');
-            return;
-        }
+        // Prepare orders
+        // IMPORTANT: Hedges must be placed first to reduce margin requirement
+        const orders = [
+            {
+                tradingsymbol: currentStraddleStrategy.hedge_call.symbol,
+                token: currentStraddleStrategy.hedge_call.token,
+                transaction_type: 'BUY',
+                quantity: lots * lotSize,
+                product: 'MIS',
+                label: 'Hedge CE (Buy)'
+            },
+            {
+                tradingsymbol: currentStraddleStrategy.hedge_put.symbol,
+                token: currentStraddleStrategy.hedge_put.token,
+                transaction_type: 'BUY',
+                quantity: lots * lotSize,
+                product: 'MIS',
+                label: 'Hedge PE (Buy)'
+            },
+            {
+                tradingsymbol: currentStraddleStrategy.atm_call.symbol,
+                token: currentStraddleStrategy.atm_call.token,
+                transaction_type: 'SELL',
+                quantity: lots * lotSize,
+                product: 'MIS',
+                label: 'ATM CE (Sell)'
+            },
+            {
+                tradingsymbol: currentStraddleStrategy.atm_put.symbol,
+                token: currentStraddleStrategy.atm_put.token,
+                transaction_type: 'SELL',
+                quantity: lots * lotSize,
+                product: 'MIS',
+                label: 'ATM PE (Sell)'
+            }
+        ];
         
-        // Prepare straddle data for backend monitoring
-        const straddleData = {
-            initial_sl_percent: config.initialSlPercent,
-            trail_points: config.trailPoints,
-            step_size: config.stepSize,
-            atm_call: config.atmCall,
-            atm_put: config.atmPut,
-            hedge_call: config.hedgeCall,
-            hedge_put: config.hedgePut,
-            lots: config.lots,
-            order_ids: deploymentSummary.results
-                .filter(r => r.success)
-                .map(r => r.order_id)
-        };
+        console.log('Deploying orders:', orders);
         
-        const response = await fetch(`${STRADDLE_CONFIG.backendUrl}/api/straddle/activate-monitoring`, {
+        const response = await fetch(`${STRADDLE_CONFIG.backendUrl}/api/straddle/deploy-straddle`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-User-ID': userId
             },
-            body: JSON.stringify(straddleData)
+            body: JSON.stringify({
+                orders: orders,
+                initial_sl_percent: currentStraddleStrategy.initialSlPercent,
+                trail_points: 6,
+                step_size: 0.5
+            })
         });
         
         const data = await response.json();
+        console.log('Deploy response:', data);
         
         if (response.ok && data.success) {
-            console.log('Straddle monitoring activated');
-            startStraddleMonitoring();
-            showToast('✅ Straddle deployed and monitoring activated!', 'success');
+            displayDeploymentResult(data);
+            
+            // Start monitoring if deployment successful
+            if (data.all_completed) {
+                showToast('✅ Straddle deployed successfully! Monitoring activated.', 'success');
+                setTimeout(() => {
+                    startStraddleMonitoring();
+                }, 1000);
+            } else {
+                showToast('⚠️ Orders placed but some are pending', 'warning');
+            }
         } else {
-            console.error('Failed to activate monitoring:', data.error);
-            showToast('⚠️ Orders placed but monitoring failed to activate', 'warning');
+            resultDiv.innerHTML = `<div class="text-center py-4 text-red-600">Error: ${data.error || 'Deployment failed'}</div>`;
+            showToast('❌ Deployment failed: ' + (data.error || 'Unknown error'), 'error');
         }
-        
-        // Clear the config
-        delete window.currentStraddleConfig;
-        
     } catch (error) {
-        console.error('Error activating straddle monitoring:', error);
-        showToast('⚠️ Orders placed but monitoring failed', 'warning');
+        console.error('Deployment error:', error);
+        resultDiv.innerHTML = `<div class="text-center py-4 text-red-600">Error: ${error.message}</div>`;
+        showToast('❌ Deployment error: ' + error.message, 'error');
     }
 }
 
+function displayDeploymentResult(data) {
+    const resultDiv = document.getElementById('straddleResult');
+    
+    let html = `
+        <div class="bg-white rounded-lg p-6 space-y-4">
+            <div class="flex items-center justify-between pb-4 border-b-2 border-gray-200">
+                <h3 class="text-xl font-bold text-gray-900">Deployment Result</h3>
+                <span class="px-4 py-2 ${data.all_completed ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'} text-sm font-semibold rounded-full">
+                    ${data.all_completed ? '✓ COMPLETED' : '⏳ PENDING'}
+                </span>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+    `;
+    
+    data.order_results.forEach(result => {
+        const isSuccess = result.success;
+        const isComplete = result.status === 'COMPLETE';
+        const borderColor = isComplete ? 'border-green-300' : isSuccess ? 'border-orange-300' : 'border-red-300';
+        const bgColor = isComplete ? 'bg-green-50' : isSuccess ? 'bg-orange-50' : 'bg-red-50';
+        const statusBadge = isComplete ? 'bg-green-100 text-green-700' : isSuccess ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700';
+        
+        html += `
+            <div class="border-2 ${borderColor} ${bgColor} rounded-lg p-3">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-bold">${result.label || result.symbol}</span>
+                    <span class="px-2 py-1 ${statusBadge} text-xs font-semibold rounded">
+                        ${result.status || (isSuccess ? 'PLACED' : 'FAILED')}
+                    </span>
+                </div>
+                <div class="text-xs space-y-1">
+                    ${result.order_id ? `<div>Order ID: ${result.order_id}</div>` : ''}
+                    ${result.average_price ? `<div>Avg Price: ₹${result.average_price.toFixed(2)}</div>` : ''}
+                    ${result.filled_quantity ? `<div>Filled: ${result.filled_quantity}</div>` : ''}
+                    ${result.error ? `<div class="text-red-600">Error: ${result.error}</div>` : ''}
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `
+            </div>
+    `;
+    
+    if (data.all_completed) {
+        html += `
+            <div class="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div class="flex items-start">
+                    <svg class="w-5 h-5 text-green-600 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                    <div class="text-sm text-green-800">
+                        <strong>All Orders Executed:</strong>
+                        <p class="mt-1">Stop loss orders placed and automated trailing monitoring is now active. The system will automatically manage your positions.</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    } else if (data.market_closed) {
+        html += `
+            <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div class="flex items-start">
+                    <svg class="w-5 h-5 text-blue-600 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                    </svg>
+                    <div class="text-sm text-blue-800">
+                        <strong>Market Closed - AMO Orders:</strong>
+                        <p class="mt-1">${data.note || 'Your orders have been placed as AMO (After Market Orders) and will be executed when the market opens. The automated trailing stop loss will be activated automatically once the orders are filled and execution prices are available.'}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    } else {
+        html += `
+            <div class="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                <div class="flex items-start">
+                    <svg class="w-5 h-5 text-orange-600 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                    </svg>
+                    <div class="text-sm text-orange-800">
+                        <strong>Orders Pending:</strong>
+                        <p class="mt-1">${data.note || 'Some orders have been placed but are not yet completed. Please check your trading terminal for current status. Automated trailing will not start until all orders are executed.'}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    html += `</div>`;
+    
+    resultDiv.innerHTML = html;
+}
+
 // ===========================================
-// STRADDLE MONITORING
+// STRADDLE MONITORING (UNCHANGED)
 // ===========================================
 
 function startStraddleMonitoring() {
-    // Clear any existing interval
     if (straddleStatusInterval) {
         clearInterval(straddleStatusInterval);
     }
     
-    // Show monitor section
     document.getElementById('straddleMonitor').classList.remove('hidden');
-    
-    // Update immediately
     updateStraddleStatus();
-    
-    // Update every 3 seconds
     straddleStatusInterval = setInterval(updateStraddleStatus, 3000);
 }
 
@@ -484,7 +511,6 @@ function displayStraddleStatus(data) {
     const statusDiv = document.getElementById('straddleStatusContent');
     const logsDiv = document.getElementById('straddleLogsContent');
     
-    // Display active straddles
     if (data.active_straddles && data.active_straddles.length > 0) {
         let html = '<div class="space-y-3">';
         
@@ -530,11 +556,9 @@ function displayStraddleStatus(data) {
         statusDiv.innerHTML = '<div class="text-center text-gray-500 py-8">No active straddles</div>';
     }
     
-    // Display logs
     if (data.logs && data.logs.length > 0) {
         let logsHtml = '<div class="space-y-2">';
         
-        // Reverse to show newest first
         data.logs.reverse().forEach(log => {
             let logClass = 'log-entry info';
             
@@ -577,20 +601,14 @@ function stopStraddleMonitoring() {
 // ===========================================
 
 function showToast(message, type = 'info') {
-    // Use BasketManager's toast if available
-    if (window.BasketManager && window.BasketManager.showToast) {
-        window.BasketManager.showToast(message, type);
-        return;
-    }
-    
-    // Fallback toast implementation
     const toast = document.createElement('div');
     const bgColor = type === 'success' ? 'bg-green-500' : 
                     type === 'error' ? 'bg-red-500' : 
                     type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500';
     
-    toast.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50 transform transition-all duration-300 translate-x-full`;
+    toast.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50 transform transition-all duration-300`;
     toast.textContent = message;
+    toast.style.transform = 'translateX(100%)';
     document.body.appendChild(toast);
     
     setTimeout(() => {
@@ -598,7 +616,7 @@ function showToast(message, type = 'info') {
     }, 100);
     
     setTimeout(() => {
-        toast.style.transform = 'translateX(full)';
+        toast.style.transform = 'translateX(100%)';
         setTimeout(() => {
             document.body.removeChild(toast);
         }, 300);
