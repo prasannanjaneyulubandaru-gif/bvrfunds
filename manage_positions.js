@@ -299,6 +299,28 @@ function showTrailSlConfig() {
                     class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
                     placeholder="Enter points"
                 />
+                <p class="text-xs text-gray-500 mt-1">
+                    Initial distance from entry price to place SL
+                </p>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-semibold text-gray-900 mb-2">
+                    Trail Step (%)
+                    <span class="text-xs font-normal text-gray-500 ml-1">- How much price must move to trail SL</span>
+                </label>
+                <input
+                    type="number"
+                    id="trailStepPercent"
+                    value="50"
+                    min="10"
+                    max="200"
+                    step="5"
+                    class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-900 text-sm"
+                    placeholder="10 to 200"
+                />
+                <p class="text-xs text-gray-500 mt-1">
+                    <strong>Example:</strong> Trail Points=10, Step=50% → Price must move 15 points (10+5) to trail SL from 90→95. Lower%=tighter, Higher%=looser
+                </p>
             </div>
             <div class="mb-4">
                 <label class="block text-sm font-semibold text-gray-900 mb-2">
@@ -356,6 +378,7 @@ async function startTrailing() {
     
     const trailPoints = parseFloat(document.getElementById('trailPoints').value);
     const bufferPercentInput = parseFloat(document.getElementById('bufferPercent').value);
+    const trailStepPercent = parseFloat(document.getElementById('trailStepPercent').value);
     
     if (isNaN(trailPoints) || trailPoints <= 0) {
         alert('Please enter a valid trail points value');
@@ -364,6 +387,11 @@ async function startTrailing() {
     
     if (isNaN(bufferPercentInput) || bufferPercentInput < 0.2 || bufferPercentInput > 5) {
         alert('Buffer percent must be between 0.2% and 5%');
+        return;
+    }
+    
+    if (isNaN(trailStepPercent) || trailStepPercent < 10 || trailStepPercent > 200) {
+        alert('Trail Step percent must be between 10% and 200%');
         return;
     }
     
@@ -426,6 +454,7 @@ async function startTrailing() {
                         <div>Trigger: ₹${triggerPrice.toFixed(2)}</div>
                         <div>Limit: ₹${limitPrice.toFixed(2)}</div>
                         <div>Trail Points: ${trailPoints}</div>
+                        <div>Trail Step: ${trailStepPercent}%</div>
                     </div>
                 </div>
             `;
@@ -443,6 +472,7 @@ async function startAutoTrailing() {
     
     const trailPoints = parseFloat(document.getElementById('trailPoints').value);
     const bufferPercentInput = parseFloat(document.getElementById('bufferPercent').value);
+    const trailStepPercent = parseFloat(document.getElementById('trailStepPercent').value);
     
     if (isNaN(trailPoints) || trailPoints <= 0) {
         alert('Please enter a valid trail points value');
@@ -451,6 +481,11 @@ async function startAutoTrailing() {
     
     if (isNaN(bufferPercentInput) || bufferPercentInput < 0.2 || bufferPercentInput > 5) {
         alert('Buffer percent must be between 0.2% and 5%');
+        return;
+    }
+    
+    if (isNaN(trailStepPercent) || trailStepPercent < 10 || trailStepPercent > 200) {
+        alert('Trail Step percent must be between 10% and 200%');
         return;
     }
     
@@ -472,7 +507,8 @@ async function startAutoTrailing() {
                 average_price: position.average_price,
                 product: position.product,
                 trail_points: trailPoints,
-                buffer_percent: bufferPercent
+                buffer_percent: bufferPercent,
+                trail_step_percent: trailStepPercent
             })
         });
         
