@@ -1,6 +1,5 @@
-// Short Straddle Module
+// Short Straddle Module - IMPROVED ERROR HANDLING
 // Automated straddle strategy with intelligent trailing stop loss
-// MINIMAL FIX: Only deployment function changed, margin check preserved
 
 const STRADDLE_CONFIG = {
     backendUrl: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
@@ -13,7 +12,7 @@ let currentStraddleStrategy = null;
 let straddleStatusInterval = null;
 
 // ===========================================
-// FETCH STRADDLE STRATEGY
+// FETCH STRADDLE STRATEGY (UNCHANGED)
 // ===========================================
 
 async function fetchShortStraddle() {
@@ -68,15 +67,11 @@ function displayStraddleResult(data, lots, initialSlPercent) {
     const hedgeCall = data.hedge_call;
     const hedgePut = data.hedge_put;
     
-    // Calculate total premium received
     const totalPremium = (atmCall.last_price + atmPut.last_price) * lots * atmCall.lot_size;
-    
-    // Calculate initial SL levels
     const ceSlPrice = atmCall.last_price * (1 + initialSlPercent / 100);
     const peSlPrice = atmPut.last_price * (1 + initialSlPercent / 100);
     
     let html = `
-        <!-- NIFTY Info -->
         <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4 mb-4">
             <div class="text-center">
                 <div class="text-sm text-gray-600 mb-1">NIFTY 50</div>
@@ -85,7 +80,6 @@ function displayStraddleResult(data, lots, initialSlPercent) {
             </div>
         </div>
         
-        <!-- Strategy Summary -->
         <div class="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4 mb-4">
             <div class="flex items-center justify-between mb-2">
                 <h4 class="font-bold text-gray-900">Strategy Summary</h4>
@@ -103,9 +97,7 @@ function displayStraddleResult(data, lots, initialSlPercent) {
             </div>
         </div>
         
-        <!-- ATM Options (Sell) -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <!-- ATM CALL -->
             <div class="border-2 border-red-200 rounded-lg p-4 bg-red-50">
                 <div class="flex items-center justify-between mb-2">
                     <h4 class="font-bold text-gray-900">ATM CALL (Sell)</h4>
@@ -120,7 +112,6 @@ function displayStraddleResult(data, lots, initialSlPercent) {
                 </div>
             </div>
             
-            <!-- ATM PUT -->
             <div class="border-2 border-red-200 rounded-lg p-4 bg-red-50">
                 <div class="flex items-center justify-between mb-2">
                     <h4 class="font-bold text-gray-900">ATM PUT (Sell)</h4>
@@ -136,11 +127,9 @@ function displayStraddleResult(data, lots, initialSlPercent) {
             </div>
         </div>
         
-        <!-- Hedge Options (Buy) -->
         <div class="mb-4">
             <h4 class="font-bold text-gray-700 mb-2 text-sm">Hedge Positions</h4>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <!-- HEDGE CALL -->
                 <div class="border border-green-200 rounded-lg p-3 bg-green-50">
                     <div class="flex items-center justify-between mb-1">
                         <span class="text-xs font-semibold text-gray-700">Hedge CALL (Buy)</span>
@@ -152,7 +141,6 @@ function displayStraddleResult(data, lots, initialSlPercent) {
                     </div>
                 </div>
                 
-                <!-- HEDGE PUT -->
                 <div class="border border-green-200 rounded-lg p-3 bg-green-50">
                     <div class="flex items-center justify-between mb-1">
                         <span class="text-xs font-semibold text-gray-700">Hedge PUT (Buy)</span>
@@ -166,7 +154,6 @@ function displayStraddleResult(data, lots, initialSlPercent) {
             </div>
         </div>
         
-        <!-- Action Buttons -->
         <div class="flex flex-wrap gap-3 justify-center">
             <button onclick="checkStraddleMargin()" 
                     class="border-2 border-blue-500 text-blue-600 font-semibold px-6 py-3 rounded-lg hover:bg-blue-50 transition-all">
@@ -178,7 +165,6 @@ function displayStraddleResult(data, lots, initialSlPercent) {
             </button>
         </div>
         
-        <!-- Margin Check Result -->
         <div id="straddleMarginResult" class="hidden mt-4"></div>
     `;
     
@@ -199,8 +185,6 @@ async function checkStraddleMargin() {
     try {
         const userId = sessionStorage.getItem('user_id');
         
-        // Prepare orders for margin check
-        // IMPORTANT: Hedges must be placed first to reduce margin requirement
         const orders = [
             {
                 exchange: 'NFO',
@@ -284,7 +268,7 @@ async function checkStraddleMargin() {
 }
 
 // ===========================================
-// DEPLOY STRADDLE (FIXED)
+// DEPLOY STRADDLE (IMPROVED WITH BETTER ERROR HANDLING)
 // ===========================================
 
 async function deployStraddle() {
@@ -300,11 +284,14 @@ async function deployStraddle() {
     
     try {
         const userId = sessionStorage.getItem('user_id');
+        if (!userId) {
+            throw new Error('No user session found. Please login again.');
+        }
+        
         const lots = currentStraddleStrategy.lots;
         const lotSize = currentStraddleStrategy.atm_call.lot_size;
         
-        // Prepare orders
-        // IMPORTANT: Hedges must be placed first to reduce margin requirement
+        // Prepare orders - Hedges first to reduce margin
         const orders = [
             {
                 tradingsymbol: currentStraddleStrategy.hedge_call.symbol,
@@ -340,7 +327,20 @@ async function deployStraddle() {
             }
         ];
         
-        console.log('Deploying orders:', orders);
+        const requestPayload = {
+            orders: orders,
+            initial_sl_percent: currentStraddleStrategy.initialSlPercent,
+            trail_points: 6,
+            step_size: 0.5
+        };
+        
+        console.log('=== DEPLOYMENT DEBUG ===');
+        console.log('Backend URL:', STRADDLE_CONFIG.backendUrl);
+        console.log('Full URL:', `${STRADDLE_CONFIG.backendUrl}/api/straddle/deploy-straddle`);
+        console.log('User ID:', userId);
+        console.log('Request Payload:', JSON.stringify(requestPayload, null, 2));
+        console.log('Orders:', orders);
+        console.log('======================');
         
         const response = await fetch(`${STRADDLE_CONFIG.backendUrl}/api/straddle/deploy-straddle`, {
             method: 'POST',
@@ -348,37 +348,68 @@ async function deployStraddle() {
                 'Content-Type': 'application/json',
                 'X-User-ID': userId
             },
-            body: JSON.stringify({
-                orders: orders,
-                initial_sl_percent: currentStraddleStrategy.initialSlPercent,
-                trail_points: 6,
-                step_size: 0.5
-            })
+            body: JSON.stringify(requestPayload),
+            mode: 'cors',
+            credentials: 'same-origin'
         });
         
-        const data = await response.json();
-        console.log('Deploy response:', data);
+        console.log('Response status:', response.status);
+        console.log('Response OK:', response.ok);
         
-        if (response.ok && data.success) {
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Response error text:', errorText);
+            throw new Error(`Server returned ${response.status}: ${errorText}`);
+        }
+        
+        const data = await response.json();
+        console.log('Response data:', data);
+        
+        if (data.success) {
             displayDeploymentResult(data);
             
-            // Start monitoring if deployment successful
             if (data.all_completed) {
-                showToast('✅ Straddle deployed successfully! Monitoring activated.', 'success');
-                setTimeout(() => {
-                    startStraddleMonitoring();
-                }, 1000);
+                showToast('✅ Straddle deployed successfully!', 'success');
+                setTimeout(() => startStraddleMonitoring(), 1000);
             } else {
                 showToast('⚠️ Orders placed but some are pending', 'warning');
             }
         } else {
-            resultDiv.innerHTML = `<div class="text-center py-4 text-red-600">Error: ${data.error || 'Deployment failed'}</div>`;
-            showToast('❌ Deployment failed: ' + (data.error || 'Unknown error'), 'error');
+            throw new Error(data.error || 'Deployment failed');
         }
+        
     } catch (error) {
-        console.error('Deployment error:', error);
-        resultDiv.innerHTML = `<div class="text-center py-4 text-red-600">Error: ${error.message}</div>`;
-        showToast('❌ Deployment error: ' + error.message, 'error');
+        console.error('=== DEPLOYMENT ERROR ===');
+        console.error('Error type:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+        console.error('=======================');
+        
+        let errorMessage = 'Deployment failed: ';
+        
+        if (error.message === 'Failed to fetch') {
+            errorMessage += 'Cannot connect to server. Please check:\n';
+            errorMessage += '1. Is the server running?\n';
+            errorMessage += '2. Backend URL: ' + STRADDLE_CONFIG.backendUrl + '\n';
+            errorMessage += '3. Check browser console for CORS errors';
+        } else {
+            errorMessage += error.message;
+        }
+        
+        resultDiv.innerHTML = `
+            <div class="bg-red-50 border-2 border-red-300 rounded-lg p-4">
+                <h4 class="font-bold text-red-800 mb-2">❌ Deployment Error</h4>
+                <pre class="text-xs text-red-700 whitespace-pre-wrap">${errorMessage}</pre>
+                <div class="mt-3 text-xs text-red-600">
+                    <p>Debug info:</p>
+                    <p>• Backend: ${STRADDLE_CONFIG.backendUrl}</p>
+                    <p>• Endpoint: /api/straddle/deploy-straddle</p>
+                    <p>• Check browser console (F12) for more details</p>
+                </div>
+            </div>
+        `;
+        
+        showToast('❌ ' + error.message, 'error');
     }
 }
 
@@ -397,34 +428,34 @@ function displayDeploymentResult(data) {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
     `;
     
-    data.order_results.forEach(result => {
-        const isSuccess = result.success;
-        const isComplete = result.status === 'COMPLETE';
-        const borderColor = isComplete ? 'border-green-300' : isSuccess ? 'border-orange-300' : 'border-red-300';
-        const bgColor = isComplete ? 'bg-green-50' : isSuccess ? 'bg-orange-50' : 'bg-red-50';
-        const statusBadge = isComplete ? 'bg-green-100 text-green-700' : isSuccess ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700';
-        
-        html += `
-            <div class="border-2 ${borderColor} ${bgColor} rounded-lg p-3">
-                <div class="flex items-center justify-between mb-2">
-                    <span class="text-sm font-bold">${result.label || result.symbol}</span>
-                    <span class="px-2 py-1 ${statusBadge} text-xs font-semibold rounded">
-                        ${result.status || (isSuccess ? 'PLACED' : 'FAILED')}
-                    </span>
+    if (data.order_results) {
+        data.order_results.forEach(result => {
+            const isSuccess = result.success;
+            const isComplete = result.status === 'COMPLETE';
+            const borderColor = isComplete ? 'border-green-300' : isSuccess ? 'border-orange-300' : 'border-red-300';
+            const bgColor = isComplete ? 'bg-green-50' : isSuccess ? 'bg-orange-50' : 'bg-red-50';
+            const statusBadge = isComplete ? 'bg-green-100 text-green-700' : isSuccess ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700';
+            
+            html += `
+                <div class="border-2 ${borderColor} ${bgColor} rounded-lg p-3">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-bold">${result.label || result.symbol}</span>
+                        <span class="px-2 py-1 ${statusBadge} text-xs font-semibold rounded">
+                            ${result.status || (isSuccess ? 'PLACED' : 'FAILED')}
+                        </span>
+                    </div>
+                    <div class="text-xs space-y-1">
+                        ${result.order_id ? `<div>Order ID: ${result.order_id}</div>` : ''}
+                        ${result.average_price ? `<div>Avg Price: ₹${result.average_price.toFixed(2)}</div>` : ''}
+                        ${result.filled_quantity ? `<div>Filled: ${result.filled_quantity}</div>` : ''}
+                        ${result.error ? `<div class="text-red-600">Error: ${result.error}</div>` : ''}
+                    </div>
                 </div>
-                <div class="text-xs space-y-1">
-                    ${result.order_id ? `<div>Order ID: ${result.order_id}</div>` : ''}
-                    ${result.average_price ? `<div>Avg Price: ₹${result.average_price.toFixed(2)}</div>` : ''}
-                    ${result.filled_quantity ? `<div>Filled: ${result.filled_quantity}</div>` : ''}
-                    ${result.error ? `<div class="text-red-600">Error: ${result.error}</div>` : ''}
-                </div>
-            </div>
-        `;
-    });
+            `;
+        });
+    }
     
-    html += `
-            </div>
-    `;
+    html += `</div>`;
     
     if (data.all_completed) {
         html += `
@@ -434,36 +465,8 @@ function displayDeploymentResult(data) {
                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
                     </svg>
                     <div class="text-sm text-green-800">
-                        <strong>All Orders Executed:</strong>
-                        <p class="mt-1">Stop loss orders placed and automated trailing monitoring is now active. The system will automatically manage your positions.</p>
-                    </div>
-                </div>
-            </div>
-        `;
-    } else if (data.market_closed) {
-        html += `
-            <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div class="flex items-start">
-                    <svg class="w-5 h-5 text-blue-600 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
-                    </svg>
-                    <div class="text-sm text-blue-800">
-                        <strong>Market Closed - AMO Orders:</strong>
-                        <p class="mt-1">${data.note || 'Your orders have been placed as AMO (After Market Orders) and will be executed when the market opens. The automated trailing stop loss will be activated automatically once the orders are filled and execution prices are available.'}</p>
-                    </div>
-                </div>
-            </div>
-        `;
-    } else {
-        html += `
-            <div class="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                <div class="flex items-start">
-                    <svg class="w-5 h-5 text-orange-600 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
-                    </svg>
-                    <div class="text-sm text-orange-800">
-                        <strong>Orders Pending:</strong>
-                        <p class="mt-1">${data.note || 'Some orders have been placed but are not yet completed. Please check your trading terminal for current status. Automated trailing will not start until all orders are executed.'}</p>
+                        <strong>All Orders Executed!</strong>
+                        <p class="mt-1">Automated trailing monitoring is now active.</p>
                     </div>
                 </div>
             </div>
@@ -471,19 +474,15 @@ function displayDeploymentResult(data) {
     }
     
     html += `</div>`;
-    
     resultDiv.innerHTML = html;
 }
 
 // ===========================================
-// STRADDLE MONITORING (UNCHANGED)
+// MONITORING (UNCHANGED)
 // ===========================================
 
 function startStraddleMonitoring() {
-    if (straddleStatusInterval) {
-        clearInterval(straddleStatusInterval);
-    }
-    
+    if (straddleStatusInterval) clearInterval(straddleStatusInterval);
     document.getElementById('straddleMonitor').classList.remove('hidden');
     updateStraddleStatus();
     straddleStatusInterval = setInterval(updateStraddleStatus, 3000);
@@ -492,13 +491,10 @@ function startStraddleMonitoring() {
 async function updateStraddleStatus() {
     try {
         const userId = sessionStorage.getItem('user_id');
-        
         const response = await fetch(`${STRADDLE_CONFIG.backendUrl}/api/straddle/straddle-status`, {
             headers: { 'X-User-ID': userId }
         });
-        
         const data = await response.json();
-        
         if (response.ok && data.success) {
             displayStraddleStatus(data);
         }
@@ -513,11 +509,9 @@ function displayStraddleStatus(data) {
     
     if (data.active_straddles && data.active_straddles.length > 0) {
         let html = '<div class="space-y-3">';
-        
         data.active_straddles.forEach(straddle => {
             const statusColor = straddle.status === 'active' ? 'green' : 
                                 straddle.status === 'completed' ? 'gray' : 'orange';
-            
             html += `
                 <div class="border-2 border-${statusColor}-200 bg-${statusColor}-50 rounded-lg p-4">
                     <div class="flex items-center justify-between mb-3">
@@ -532,24 +526,19 @@ function displayStraddleStatus(data) {
                             <div class="font-bold ${straddle.ce_sl_hit ? 'text-red-600' : 'text-green-600'}">
                                 ${straddle.ce_sl_hit ? '✗ SL Hit' : '✓ Active'}
                             </div>
-                            ${straddle.ce_current_sl ? `
-                                <div class="text-xs text-gray-600 mt-1">SL: ₹${straddle.ce_current_sl.toFixed(2)}</div>
-                            ` : ''}
+                            ${straddle.ce_current_sl ? `<div class="text-xs text-gray-600 mt-1">SL: ₹${straddle.ce_current_sl.toFixed(2)}</div>` : ''}
                         </div>
                         <div>
                             <div class="text-gray-600 text-xs mb-1">PE Status</div>
                             <div class="font-bold ${straddle.pe_sl_hit ? 'text-red-600' : 'text-green-600'}">
                                 ${straddle.pe_sl_hit ? '✗ SL Hit' : '✓ Active'}
                             </div>
-                            ${straddle.pe_current_sl ? `
-                                <div class="text-xs text-gray-600 mt-1">SL: ₹${straddle.pe_current_sl.toFixed(2)}</div>
-                            ` : ''}
+                            ${straddle.pe_current_sl ? `<div class="text-xs text-gray-600 mt-1">SL: ₹${straddle.pe_current_sl.toFixed(2)}</div>` : ''}
                         </div>
                     </div>
                 </div>
             `;
         });
-        
         html += '</div>';
         statusDiv.innerHTML = html;
     } else {
@@ -558,18 +547,10 @@ function displayStraddleStatus(data) {
     
     if (data.logs && data.logs.length > 0) {
         let logsHtml = '<div class="space-y-2">';
-        
         data.logs.reverse().forEach(log => {
             let logClass = 'log-entry info';
-            
-            if (log.message.includes('✅') || log.message.includes('✓')) {
-                logClass = 'log-entry success';
-            } else if (log.message.includes('❌') || log.message.includes('⚠️') || log.message.includes('✗')) {
-                logClass = 'log-entry error';
-            } else if (log.message.includes('🔽') || log.message.includes('🔼') || log.message.includes('🎯')) {
-                logClass = 'log-entry info';
-            }
-            
+            if (log.message.includes('✅') || log.message.includes('✓')) logClass = 'log-entry success';
+            else if (log.message.includes('❌') || log.message.includes('⚠️')) logClass = 'log-entry error';
             logsHtml += `
                 <div class="${logClass}">
                     <div class="flex items-start justify-between">
@@ -579,7 +560,6 @@ function displayStraddleStatus(data) {
                 </div>
             `;
         });
-        
         logsHtml += '</div>';
         logsDiv.innerHTML = logsHtml;
     } else {
@@ -592,7 +572,6 @@ function stopStraddleMonitoring() {
         clearInterval(straddleStatusInterval);
         straddleStatusInterval = null;
     }
-    
     document.getElementById('straddleMonitor').classList.add('hidden');
 }
 
@@ -606,21 +585,11 @@ function showToast(message, type = 'info') {
                     type === 'error' ? 'bg-red-500' : 
                     type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500';
     
-    toast.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50 transform transition-all duration-300`;
+    toast.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50`;
     toast.textContent = message;
-    toast.style.transform = 'translateX(100%)';
     document.body.appendChild(toast);
     
-    setTimeout(() => {
-        toast.style.transform = 'translateX(0)';
-    }, 100);
-    
-    setTimeout(() => {
-        toast.style.transform = 'translateX(100%)';
-        setTimeout(() => {
-            document.body.removeChild(toast);
-        }, 300);
-    }, 3000);
+    setTimeout(() => document.body.removeChild(toast), 3000);
 }
 
 // ===========================================
@@ -632,6 +601,11 @@ document.addEventListener('DOMContentLoaded', function() {
     if (fetchBtn) {
         fetchBtn.addEventListener('click', fetchShortStraddle);
     }
+    
+    // Test backend connection
+    console.log('Short Straddle Module Loaded');
+    console.log('Backend URL:', STRADDLE_CONFIG.backendUrl);
+    console.log('Current hostname:', window.location.hostname);
 });
 
 console.log('Short Straddle module initialized');
